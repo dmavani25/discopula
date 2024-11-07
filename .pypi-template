@@ -1,0 +1,24 @@
+a_description_for_the_package: This package is for discrete copula modeling and implementation
+  of new scoring methods pertaining to ordinal and categorical discrete data.
+classifiers:
+- 'Programming Language :: Cython'
+- 'Programming Language :: Python'
+console_scripts: []
+first_year_of_publication: '2024'
+github_account: DhyeyMavani2003
+github_repo_name: discopula
+keywords_describing_the_package: copula
+license: MIT
+package_module_name: discopula
+package_name: discopula
+package_tagline: Discrete checkerboard copula modeling and implementation of new scoring
+  methods pertaining to ordinal and categorical discrete data.
+package_title: discopula
+readme: .github/README.md
+requires: []
+scripts: []
+version: 0.6.1
+your_author_name: Dhyey Mavani
+your_email_address: ddmavani2003@gmail.com
+your_full_name: Dhyey Dharmendrakumar Mavani
+your_name: Dhyey Mavani
