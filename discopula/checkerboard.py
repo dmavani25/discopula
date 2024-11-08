@@ -2,7 +2,7 @@ import numpy as np
 
 class CheckerboardCopula:
     """
-    A class to calculate the checkerboard copula density for ordinal random vectors.
+    A class to calculate the checkerboard copula density and scores for ordinal random vectors.
     """
 
     def __init__(self, P):
@@ -14,8 +14,10 @@ class CheckerboardCopula:
             P (numpy.ndarray): The joint probability matrix.
         """
         self.P = P
-        self.marginal_cdf_X1 = np.cumsum(P.sum(axis=1))
-        self.marginal_cdf_X2 = np.cumsum(P.sum(axis=0))
+        self.marginal_cdf_X1 = np.cumsum(P.sum(axis=1))  # Marginal CDF for X1
+        self.marginal_cdf_X2 = np.cumsum(P.sum(axis=0))  # Marginal CDF for X2
+        self.scores_X1 = self.calculate_checkerboard_scores(self.marginal_cdf_X1)
+        self.scores_X2 = self.calculate_checkerboard_scores(self.marginal_cdf_X2)
 
     def lambda_function(self, u, ul, uj):
         """
@@ -67,3 +69,19 @@ class CheckerboardCopula:
                 result += lambda_s * self.P[i][j]
         
         return result
+    
+    def calculate_checkerboard_scores(self, marginal_cdf):
+        """
+        Calculates the checkerboard copula scores for an ordinal variable as per Definition 2.
+        
+        Args:
+            marginal_cdf (numpy.ndarray): The cumulative distribution function of the marginal.
+        
+        Returns:
+            list: Checkerboard copula scores for the ordinal variable.
+        """
+        scores = []
+        for j in range(1, len(marginal_cdf)):
+            score = (marginal_cdf[j - 1] + marginal_cdf[j]) / 2
+            scores.append(score)
+        return scores
