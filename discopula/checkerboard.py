@@ -14,22 +14,15 @@ class CheckerboardCopula:
             P (numpy.ndarray): The joint probability matrix.
         """
         self.P = P
-        self.marginal_cdf_X1 = np.cumsum(P.sum(axis=1))  # Marginal CDF for X1
-        self.marginal_cdf_X2 = np.cumsum(P.sum(axis=0))  # Marginal CDF for X2
+        # Normalized cumulative sums for marginal CDFs to ensure they are proper CDFs ranging from 0 to 1.
+        self.marginal_cdf_X1 = np.insert(np.cumsum(P.sum(axis=1)) / P.sum(), 0, 0)  # Marginal CDF for X1
+        self.marginal_cdf_X2 = np.insert(np.cumsum(P.sum(axis=0)) / P.sum(), 0, 0)  # Marginal CDF for X2
         self.scores_X1 = self.calculate_checkerboard_scores(self.marginal_cdf_X1)
         self.scores_X2 = self.calculate_checkerboard_scores(self.marginal_cdf_X2)
 
     def lambda_function(self, u, ul, uj):
         """
         Calculates the lambda function for given u, ul, and uj values as per the checkerboard copula definition.
-        
-        Args:
-            u (float): The target value for copula density calculation.
-            ul (float): The lower bound for the interval.
-            uj (float): The upper bound for the interval.
-        
-        Returns:
-            float: Lambda function result.
         """
         if u <= ul:
             return 0.0
@@ -41,12 +34,6 @@ class CheckerboardCopula:
     def copula_density(self, u_values):
         """
         Calculates the checkerboard copula density for a given point (u1, u2).
-        
-        Args:
-            u_values (tuple): A tuple of (u1, u2) values within the [0, 1] interval.
-        
-        Returns:
-            float: Checkerboard copula density at the given point.
         """
         d = len(u_values)  # dimension of copula (should be 2 for this case)
         result = 0.0
@@ -57,13 +44,13 @@ class CheckerboardCopula:
                 lambda_s = 1.0
                 for k in range(d):
                     if k == 0:
-                        ul = self.marginal_cdf_X1[i-1] if i > 0 else 0
-                        uj = self.marginal_cdf_X1[i]
+                        ul = self.marginal_cdf_X1[i] if i > 0 else 0
+                        uj = self.marginal_cdf_X1[i+1]
                         lambda_val = self.lambda_function(u_values[k], ul, uj)
                         lambda_s *= lambda_val
                     else:
-                        ul = self.marginal_cdf_X2[j-1] if j > 0 else 0
-                        uj = self.marginal_cdf_X2[j]
+                        ul = self.marginal_cdf_X2[j] if j > 0 else 0
+                        uj = self.marginal_cdf_X2[j+1]
                         lambda_val = self.lambda_function(u_values[k], ul, uj)
                         lambda_s *= lambda_val
                 result += lambda_s * self.P[i][j]
@@ -73,15 +60,6 @@ class CheckerboardCopula:
     def calculate_checkerboard_scores(self, marginal_cdf):
         """
         Calculates the checkerboard copula scores for an ordinal variable as per Definition 2.
-        
-        Args:
-            marginal_cdf (numpy.ndarray): The cumulative distribution function of the marginal.
-        
-        Returns:
-            list: Checkerboard copula scores for the ordinal variable.
         """
-        scores = []
-        for j in range(1, len(marginal_cdf)):
-            score = (marginal_cdf[j - 1] + marginal_cdf[j]) / 2
-            scores.append(score)
+        scores = [(marginal_cdf[j - 1] + marginal_cdf[j]) / 2 for j in range(1, len(marginal_cdf))]
         return scores

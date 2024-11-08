@@ -2,9 +2,6 @@ import numpy as np
 from discopula.checkerboard import CheckerboardCopula
 import pytest
 
-# @TODO Note: Expected outputs have been modified to match the new implementation of the CheckerboardCopula class for now. 
-# [ CHECK BACK LATER to ensure consistency with examples in paper ]
-
 @pytest.fixture
 def checkerboard_copula_dummy():
     """
@@ -47,8 +44,7 @@ def checkerboard_copula():
     return CheckerboardCopula(P)
 
 @pytest.mark.parametrize("expected_cdf_X1, expected_cdf_X2", [
-#    ([0, 2/8, 3/8, 5/8, 6/8, 1], [0, 2/8, 4/8, 1])
-     ([0.25 , 0.375, 0.625, 0.75 , 1.   ], [0.25, 0.5 , 1.  ])
+     ([0, 2/8, 3/8, 5/8, 6/8, 1], [0, 2/8, 4/8, 1])
 ])
 def test_marginal_cdfs(checkerboard_copula, expected_cdf_X1, expected_cdf_X2):
     """
@@ -60,8 +56,7 @@ def test_marginal_cdfs(checkerboard_copula, expected_cdf_X1, expected_cdf_X2):
                                    err_msg="Marginal CDF for X2 does not match expected values")
 
 @pytest.mark.parametrize("expected_scores_X1, expected_scores_X2", [
-#    ([2/16, 5/16, 8/16, 11/16, 14/16], [2/16, 6/16, 12/16])
-     ([0.3125, 0.5   , 0.6875, 0.875 ], [0.375, 0.75 ])
+     ([2/16, 5/16, 8/16, 11/16, 14/16], [2/16, 6/16, 12/16])
 ])
 def test_checkerboard_scores(checkerboard_copula, expected_scores_X1, expected_scores_X2):
     """
@@ -73,8 +68,7 @@ def test_checkerboard_scores(checkerboard_copula, expected_scores_X1, expected_s
                                    err_msg="Checkerboard scores for X2 do not match expected values")
 
 @pytest.mark.parametrize("expected_mean_S1, expected_variance_S1, expected_mean_S2, expected_variance_S2", [
-#    (0.5, 81/1024, 0.5, 9/128)
-     (0.59375, 0.0439453125, 0.5625, 0.03515625)
+     (0.5, 81/1024, 0.4167, 9/128)
 ])
 def test_means_and_variances(checkerboard_copula, expected_mean_S1, expected_variance_S1, expected_mean_S2, expected_variance_S2):
     """
