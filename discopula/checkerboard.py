@@ -15,9 +15,15 @@ class CheckerboardCopula:
             P (numpy.ndarray): The joint probability matrix.
         """
         self.P = P
+        
         # Normalized cumulative sums for marginal CDFs to ensure they are proper CDFs ranging from 0 to 1.
         self.marginal_cdf_X1 = np.insert(np.cumsum(P.sum(axis=1)) / P.sum(), 0, 0)  # Marginal CDF for X1
         self.marginal_cdf_X2 = np.insert(np.cumsum(P.sum(axis=0)) / P.sum(), 0, 0)  # Marginal CDF for X2
+
+        # Marginal PDFs (densities are just the probabilities for discrete distributions)
+        self.marginal_pdf_X1 = P.sum(axis=1) / P.sum()  # Marginal PDF for X1
+        self.marginal_pdf_X2 = P.sum(axis=0) / P.sum()  # Marginal PDF for X2
+
         self.conditional_pmf_X2_given_X1 = self.calculate_conditional_pmf_X2_given_X1()
         self.conditional_pmf_X1_given_X2 = self.calculate_conditional_pmf_X1_given_X2()
         self.scores_X1 = self.calculate_checkerboard_scores(self.marginal_cdf_X1)
@@ -121,30 +127,45 @@ class CheckerboardCopula:
             results[mask] = regression_value
                 
         return results
-        
-    def copula_density(self, u_values):
+    
+    def calculate_CCRAM_X1_X2(self):
         """
-        Calculates the checkerboard copula density for a given point (u1, u2).
-        NOTE: This function might be brittle. Needs to be tested thoroughly & a second look.
+        Calculates the Checkerboard Copula Regression Association Measure (CCRAM) for X1 and X2.
         """
-        d = len(u_values)  # dimension of copula (should be 2 for this case)
-        result = 0.0
-        
-        # Iterate through all elements in P to calculate the copula density
-        for i in range(len(self.P)):
-            for j in range(len(self.P[i])):
-                lambda_s = 1.0
-                for k in range(d):
-                    if k == 0:
-                        ul = self.marginal_cdf_X1[i] if i > 0 else 0
-                        uj = self.marginal_cdf_X1[i+1]
-                        lambda_val = self.lambda_function(u_values[k], ul, uj)
-                        lambda_s *= lambda_val
-                    else:
-                        ul = self.marginal_cdf_X2[j] if j > 0 else 0
-                        uj = self.marginal_cdf_X2[j+1]
-                        lambda_val = self.lambda_function(u_values[k], ul, uj)
-                        lambda_s *= lambda_val
-                result += lambda_s * self.P[i][j]
-        
-        return result
+        weighted_expectation = 0.0
+        for p_x1, u1 in zip(self.marginal_pdf_X1, self.marginal_cdf_X1[1:]):
+            regression_value = self.calculate_regression_U2_on_U1(u1)
+            weighted_expectation += p_x1 * (regression_value - 0.5) ** 2
+        return 12 * weighted_expectation
+    
+    def calculate_CCRAM_X1_X2_vectorized(self):
+        """
+        Vectorized version of calculate_CCRAM_X1_X2 that can handle arrays of u1
+        values.
+        """
+        regression_values = self.calculate_regression_U2_on_U1_vectorized(self.marginal_cdf_X1[1:])
+        weighted_expectation = np.sum(self.marginal_pdf_X1 * (regression_values - 0.5) ** 2)
+        return 12 * weighted_expectation
+    
+    def calculate_sigma_sq_S(self):
+        """
+        Calculates the variance of the checkerboard copula score S.
+        """
+        print(self.marginal_pdf_X2)
+        print(self.marginal_cdf_X2)
+        print(self.marginal_cdf_X2[:-1])
+        print(self.marginal_cdf_X2[1:])
+        sigma_sq_S = np.sum(self.marginal_pdf_X2 * (self.marginal_cdf_X2[:-1] * self.marginal_cdf_X2[1:]))/4.0
+        return sigma_sq_S
+    
+# Main function to test the CheckerboardCopula class quickly
+if __name__ == '__main__':
+    # Example usage
+    cop = CheckerboardCopula(np.array([
+        [0, 0, 2/8],
+        [0, 1/8, 0],
+        [2/8, 0, 0],
+        [0, 1/8, 0],
+        [0, 0, 2/8]
+    ]))
+    print(cop.calculate_sigma_sq_S())

@@ -166,16 +166,33 @@ def test_regression_U2_on_U1_vectorized(checkerboard_copula, u1_values, expected
         decimal=5,
         err_msg="Vectorized regression values do not match expected values"
     )
-
-@pytest.mark.parametrize("u_values, expected", [
-    ((0.3, 0.7), 0.15),   # Example test case with expected output
-    ((0.1, 0.5), 0.0),   # Test point with low values
-    ((0.5, 0.5), 0.25),   # Central point test
-    ((0.8, 0.1), 0.1)    # Upper boundary test
+    
+@pytest.mark.parametrize("expected_ccram", [
+    0.84375  # Based on manual calculation for the given P matrix (= 27/32)
 ])
-def test_copula_density(checkerboard_copula, u_values, expected):
+def test_CCRAM_X1_X2(checkerboard_copula, expected_ccram):
     """
-    Tests the copula_density method of CheckerboardCopula for different points.
+    Tests the CCRAM calculation for X1 and X2.
     """
-    result = checkerboard_copula.copula_density(u_values)
-    assert abs(result - expected) < 0.01, f"Failed for {u_values}: Expected {expected}, got {result}"
+    calculated_ccram = checkerboard_copula.calculate_CCRAM_X1_X2()
+    np.testing.assert_almost_equal(
+        calculated_ccram,
+        expected_ccram,
+        decimal=5,
+        err_msg=f"CCRAM for X1 and X2 does not match the expected value {expected_ccram}"
+    )
+
+@pytest.mark.parametrize("expected_ccram_vectorized", [
+    0.84375  # Based on manual calculation for the given P matrix (= 27/32)
+])
+def test_CCRAM_X1_X2_vectorized(checkerboard_copula, expected_ccram_vectorized):
+    """
+    Tests the vectorized CCRAM calculation for X1 and X2.
+    """
+    calculated_ccram_vectorized = checkerboard_copula.calculate_CCRAM_X1_X2_vectorized()
+    np.testing.assert_almost_equal(
+        calculated_ccram_vectorized,
+        expected_ccram_vectorized,
+        decimal=5,
+        err_msg=f"Vectorized CCRAM for X1 and X2 does not match the expected value {expected_ccram_vectorized}"
+    )
