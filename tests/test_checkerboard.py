@@ -100,6 +100,25 @@ def test_conditional_pmf_sums(checkerboard_copula):
         err_msg="Conditional PMF of X1 given X2 columns do not sum to 1"
     )
     
+@pytest.mark.parametrize("u, ul, uj, expected_lambda_value", [
+    (0, 0.1, 2/8, 0),  # u <= ul
+    (1/16, 0, 2/8, 1/4),  # ul < u < uj
+    (2/8, 2/8, 3/8, 0),  # u = ul
+    (5/8, 3/8, 5/8, 1),  # u = uj
+    (1, 0.5, 0.7, 1)  # u >= uj
+])
+def test_lambda_value(checkerboard_copula, u, ul, uj, expected_lambda_value):
+    """
+    Tests the lambda value for the checkerboard copula.
+    """
+    lambda_value = checkerboard_copula.lambda_function(u, ul, uj)
+    np.testing.assert_almost_equal(
+        lambda_value,
+        expected_lambda_value,
+        decimal=5,
+        err_msg=f"Lambda value for u={u}, ul={ul}, uj={uj} does not match expected value"
+    )
+    
 @pytest.mark.parametrize("expected_scores_X1, expected_scores_X2", [
      ([2/16, 5/16, 8/16, 11/16, 14/16], [2/16, 6/16, 12/16])
 ])
@@ -158,7 +177,7 @@ def test_regression_U2_on_U1_vectorized(checkerboard_copula, u1_values, expected
     """
     Tests the vectorized regression function with multiple u1 values.
     """
-    calculated_regression_values = checkerboard_copula.calculate_regression_U2_on_U1_vectorized(u1_values)
+    calculated_regression_values = checkerboard_copula.calculate_regression_U2_on_U1_batched(u1_values)
     
     np.testing.assert_array_almost_equal(
         calculated_regression_values,
@@ -225,4 +244,34 @@ def test_sigma_sq_S_vectorized_times_12(checkerboard_copula, expected_sigma_sq_S
         expected_sigma_sq_S_vectorized_times_12,
         decimal=5,
         err_msg=f"Vectorized sigma squared S times 12 does not match the expected value {expected_sigma_sq_S_vectorized_times_12}"
+    )
+    
+@pytest.mark.parametrize("expected_SCCRAM", [
+    0.84375 / (12 * 0.0703125)  # Based on manual calculation for the given P matrix
+])
+def test_SCCRAM(checkerboard_copula, expected_SCCRAM):
+    """
+    Tests the calculation of the standardized Checkerboard Copula Regression Association Measure (SCCRAM).
+    """
+    calculated_SCCRAM = checkerboard_copula.calculate_SCCRAM_X1_X2()
+    np.testing.assert_almost_equal(
+        calculated_SCCRAM,
+        expected_SCCRAM,
+        decimal=5,
+        err_msg=f"SCCRAM for X1 and X2 does not match the expected value {expected_SCCRAM}"
+    )
+    
+@pytest.mark.parametrize("expected_SCCRAM_vectorized", [
+    0.84375 / (12 * 0.0703125)  # Based on manual calculation for the given P matrix
+])
+def test_SCCRAM_vectorized(checkerboard_copula, expected_SCCRAM_vectorized):
+    """
+    Tests the vectorized calculation of the standardized Checkerboard Copula Regression Association Measure (SCCRAM).
+    """
+    calculated_SCCRAM_vectorized = checkerboard_copula.calculate_SCCRAM_X1_X2_vectorized()
+    np.testing.assert_almost_equal(
+        calculated_SCCRAM_vectorized,
+        expected_SCCRAM_vectorized,
+        decimal=5,
+        err_msg=f"Vectorized SCCRAM for X1 and X2 does not match the expected value {expected_SCCRAM_vectorized}"
     )
