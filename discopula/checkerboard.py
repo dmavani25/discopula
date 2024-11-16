@@ -150,22 +150,49 @@ class CheckerboardCopula:
     def calculate_sigma_sq_S(self):
         """
         Calculates the variance of the checkerboard copula score S.
+        Formula: σ²_Sⱼ = Σᵢⱼ₌₁^Iⱼ û_ᵢⱼ₋₁ û_ᵢⱼ p̂₊ᵢⱼ₊/4
         """
-        print(self.marginal_pdf_X2)
-        print(self.marginal_cdf_X2)
-        print(self.marginal_cdf_X2[:-1])
-        print(self.marginal_cdf_X2[1:])
-        sigma_sq_S = np.sum(self.marginal_pdf_X2 * (self.marginal_cdf_X2[:-1] * self.marginal_cdf_X2[1:]))/4.0
+        # Get consecutive CDF values
+        u_prev = self.marginal_cdf_X2[:-1]  # û_ᵢⱼ₋₁
+        u_next = self.marginal_cdf_X2[1:]   # û_ᵢⱼ
+        
+        # Calculate each term in the sum
+        terms = []
+        for i in range(len(self.marginal_pdf_X2)):
+            if i < len(u_prev) and i < len(u_next):
+                term = u_prev[i] * u_next[i] * self.marginal_pdf_X2[i]
+                terms.append(term)
+        
+        # Calculate sigma_sq_S
+        sigma_sq_S = sum(terms) / 4.0
+        
         return sigma_sq_S
     
-# Main function to test the CheckerboardCopula class quickly
+    def calculate_sigma_sq_S_vectorized(self):
+        """
+        Calculates the variance of the checkerboard copula score S using vectorized operations.
+        Formula: σ²_Sⱼ = Σᵢⱼ₌₁^Iⱼ û_ᵢⱼ₋₁ û_ᵢⱼ p̂₊ᵢⱼ₊/4 (vectorized)
+        """
+        # Get consecutive CDF values
+        u_prev = self.marginal_cdf_X2[:-1]  # û_ᵢⱼ₋₁
+        u_next = self.marginal_cdf_X2[1:]   # û_ᵢⱼ
+        
+        # Vectorized multiplication of all terms
+        terms = u_prev * u_next * self.marginal_pdf_X2
+        
+        # Calculate sigma_sq_S
+        sigma_sq_S = np.sum(terms) / 4.0
+        
+        return sigma_sq_S
+
+# For quick testing purposes
 if __name__ == '__main__':
-    # Example usage
-    cop = CheckerboardCopula(np.array([
+    P = np.array([
         [0, 0, 2/8],
         [0, 1/8, 0],
         [2/8, 0, 0],
         [0, 1/8, 0],
         [0, 0, 2/8]
-    ]))
-    print(cop.calculate_sigma_sq_S())
+    ])
+    
+    cop = CheckerboardCopula(P)

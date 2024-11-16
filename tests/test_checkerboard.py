@@ -196,3 +196,33 @@ def test_CCRAM_X1_X2_vectorized(checkerboard_copula, expected_ccram_vectorized):
         decimal=5,
         err_msg=f"Vectorized CCRAM for X1 and X2 does not match the expected value {expected_ccram_vectorized}"
     )
+    
+@pytest.mark.parametrize("expected_sigma_sq_S_times_12", [
+    0.0703125 * 12  # Based on manual calculation for the given P matrix (= 0.84375)
+])
+def test_sigma_sq_S_times_12(checkerboard_copula, expected_sigma_sq_S_times_12):
+    """
+    Tests the calculation of sigma_sq_S.
+    """
+    calculated_sigma_sq_S = checkerboard_copula.calculate_sigma_sq_S()
+    np.testing.assert_almost_equal(
+        calculated_sigma_sq_S * 12,
+        expected_sigma_sq_S_times_12,
+        decimal=5,
+        err_msg=f"Sigma squared S times 12 does not match the expected value {expected_sigma_sq_S_times_12}"
+    )
+
+@pytest.mark.parametrize("expected_sigma_sq_S_vectorized_times_12", [
+    0.0703125 * 12  # Based on manual calculation for the given P matrix (= 0.84375)
+])
+def test_sigma_sq_S_vectorized_times_12(checkerboard_copula, expected_sigma_sq_S_vectorized_times_12):
+    """
+    Tests the vectorized calculation of sigma_sq_S.
+    """
+    calculated_sigma_sq_S_vectorized = checkerboard_copula.calculate_sigma_sq_S_vectorized()
+    np.testing.assert_almost_equal(
+        calculated_sigma_sq_S_vectorized * 12,
+        expected_sigma_sq_S_vectorized_times_12,
+        decimal=5,
+        err_msg=f"Vectorized sigma squared S times 12 does not match the expected value {expected_sigma_sq_S_vectorized_times_12}"
+    )
