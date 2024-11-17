@@ -173,9 +173,9 @@ def test_regression_U2_on_U1(checkerboard_copula, u1, expected_regression_value)
 @pytest.mark.parametrize("u1_values, expected_regression_values", [
     ([0, 1/16, 3/8, 4/8, 5.5/8, 7/8, 1], [12/16, 12/16, 6/16, 2/16, 6/16, 12/16, 12/16])
 ])
-def test_regression_U2_on_U1_vectorized(checkerboard_copula, u1_values, expected_regression_values):
+def test_regression_U2_on_U1_batched(checkerboard_copula, u1_values, expected_regression_values):
     """
-    Tests the vectorized regression function with multiple u1 values.
+    Tests the batched regression function with multiple u1 values.
     """
     calculated_regression_values = checkerboard_copula.calculate_regression_U2_on_U1_batched(u1_values)
     
@@ -183,7 +183,44 @@ def test_regression_U2_on_U1_vectorized(checkerboard_copula, u1_values, expected
         calculated_regression_values,
         expected_regression_values,
         decimal=5,
-        err_msg="Vectorized regression values do not match expected values"
+        err_msg="Batched regression values do not match expected values"
+    )
+    
+@pytest.mark.parametrize("u2, expected_regression_value", [
+    (0, 1/2), # Inside [0, 2/8]
+    (2/8, 1/2),  # Inside [0, 2/8]
+    (3/8, 1/2),  # Inside (2/8, 3/8]
+    (4/8, 1/2),    # Inside (3/8, 5/8]
+    (6/8, 1/2),  # Inside (5/8, 6/8]
+    (1, 1/2)    # Inside (6/8, 1]
+])
+def test_regression_U1_on_U2(checkerboard_copula, u2, expected_regression_value):
+    """
+    Tests the regression function for specific u2 values that should match
+    the given example values.
+    """
+    calculated_regression_value = checkerboard_copula.calculate_regression_U1_on_U2(u2)
+    np.testing.assert_almost_equal(
+        calculated_regression_value, 
+        expected_regression_value,
+        decimal=5,
+        err_msg=f"Regression value for u2={u2} does not match expected value"
+    )
+
+@pytest.mark.parametrize("u2_values, expected_regression_values", [
+    ([0, 1/16, 3/8, 4/8, 5/8, 6/8, 1], [1/2, 1/2, 1/2, 1/2, 1/2, 1/2, 1/2])
+])
+def test_regression_U1_on_U2_batched(checkerboard_copula, u2_values, expected_regression_values):
+    """
+    Tests the batched regression function with multiple u2 values.
+    """
+    calculated_regression_values = checkerboard_copula.calculate_regression_U1_on_U2_batched(u2_values)
+    
+    np.testing.assert_array_almost_equal(
+        calculated_regression_values,
+        expected_regression_values,
+        decimal=5,
+        err_msg="Batched regression values do not match expected values"
     )
     
 @pytest.mark.parametrize("expected_ccram", [
@@ -191,14 +228,14 @@ def test_regression_U2_on_U1_vectorized(checkerboard_copula, u1_values, expected
 ])
 def test_CCRAM_X1_X2(checkerboard_copula, expected_ccram):
     """
-    Tests the CCRAM calculation for X1 and X2.
+    Tests the CCRAM calculation for X1 --> X2.
     """
     calculated_ccram = checkerboard_copula.calculate_CCRAM_X1_X2()
     np.testing.assert_almost_equal(
         calculated_ccram,
         expected_ccram,
         decimal=5,
-        err_msg=f"CCRAM for X1 and X2 does not match the expected value {expected_ccram}"
+        err_msg=f"CCRAM for X1 --> X2 does not match the expected value {expected_ccram}"
     )
 
 @pytest.mark.parametrize("expected_ccram_vectorized", [
@@ -206,50 +243,110 @@ def test_CCRAM_X1_X2(checkerboard_copula, expected_ccram):
 ])
 def test_CCRAM_X1_X2_vectorized(checkerboard_copula, expected_ccram_vectorized):
     """
-    Tests the vectorized CCRAM calculation for X1 and X2.
+    Tests the vectorized CCRAM calculation for X1 --> X2.
     """
     calculated_ccram_vectorized = checkerboard_copula.calculate_CCRAM_X1_X2_vectorized()
     np.testing.assert_almost_equal(
         calculated_ccram_vectorized,
         expected_ccram_vectorized,
         decimal=5,
-        err_msg=f"Vectorized CCRAM for X1 and X2 does not match the expected value {expected_ccram_vectorized}"
+        err_msg=f"Vectorized CCRAM for X1 --> X2 does not match the expected value {expected_ccram_vectorized}"
     )
-    
-@pytest.mark.parametrize("expected_sigma_sq_S_times_12", [
-    0.0703125 * 12  # Based on manual calculation for the given P matrix (= 0.84375)
+
+@pytest.mark.parametrize("expected_ccram", [
+    0.0  # Based on manual calculation for the given P matrix
 ])
-def test_sigma_sq_S_times_12(checkerboard_copula, expected_sigma_sq_S_times_12):
+def test_CCRAM_X2_X1(checkerboard_copula, expected_ccram):
     """
-    Tests the calculation of sigma_sq_S.
+    Tests the CCRAM calculation for X2 --> X1.
     """
-    calculated_sigma_sq_S = checkerboard_copula.calculate_sigma_sq_S()
+    calculated_ccram = checkerboard_copula.calculate_CCRAM_X2_X1()
+    np.testing.assert_almost_equal(
+        calculated_ccram,
+        expected_ccram,
+        decimal=5,
+        err_msg=f"CCRAM for X2 --> X1 does not match the expected value {expected_ccram}"
+    )
+
+@pytest.mark.parametrize("expected_ccram_vectorized", [
+    0.0  # Based on manual calculation for the given P matrix
+])
+def test_CCRAM_X2_X1_vectorized(checkerboard_copula, expected_ccram_vectorized):
+    """
+    Tests the vectorized CCRAM calculation for X2 --> X1.
+    """
+    calculated_ccram_vectorized = checkerboard_copula.calculate_CCRAM_X2_X1_vectorized()
+    np.testing.assert_almost_equal(
+        calculated_ccram_vectorized,
+        expected_ccram_vectorized,
+        decimal=5,
+        err_msg=f"Vectorized CCRAM for X2 --> X1 does not match the expected value {expected_ccram_vectorized}"
+    )
+
+@pytest.mark.parametrize("expected_sigma_sq_S_times_12", [
+    0.0703125 * 12  # Based on manual calculation for the given P matrix
+])
+def test_sigma_sq_S_X2_times_12(checkerboard_copula, expected_sigma_sq_S_times_12):
+    """
+    Tests the calculation of sigma_sq_S for X2.
+    """
+    calculated_sigma_sq_S = checkerboard_copula.calculate_sigma_sq_S_X2()
     np.testing.assert_almost_equal(
         calculated_sigma_sq_S * 12,
         expected_sigma_sq_S_times_12,
         decimal=5,
-        err_msg=f"Sigma squared S times 12 does not match the expected value {expected_sigma_sq_S_times_12}"
+        err_msg=f"Sigma squared S times 12 for X2 does not match the expected value {expected_sigma_sq_S_times_12}"
     )
 
 @pytest.mark.parametrize("expected_sigma_sq_S_vectorized_times_12", [
-    0.0703125 * 12  # Based on manual calculation for the given P matrix (= 0.84375)
+    0.0703125 * 12  # Based on manual calculation for the given P matrix
 ])
-def test_sigma_sq_S_vectorized_times_12(checkerboard_copula, expected_sigma_sq_S_vectorized_times_12):
+def test_sigma_sq_S_X2_vectorized_times_12(checkerboard_copula, expected_sigma_sq_S_vectorized_times_12):
     """
-    Tests the vectorized calculation of sigma_sq_S.
+    Tests the vectorized calculation of sigma_sq_S for X2.
     """
-    calculated_sigma_sq_S_vectorized = checkerboard_copula.calculate_sigma_sq_S_vectorized()
+    calculated_sigma_sq_S_vectorized = checkerboard_copula.calculate_sigma_sq_S_X2_vectorized()
     np.testing.assert_almost_equal(
         calculated_sigma_sq_S_vectorized * 12,
         expected_sigma_sq_S_vectorized_times_12,
         decimal=5,
-        err_msg=f"Vectorized sigma squared S times 12 does not match the expected value {expected_sigma_sq_S_vectorized_times_12}"
+        err_msg=f"Vectorized sigma squared S times 12 for X2 does not match the expected value {expected_sigma_sq_S_vectorized_times_12}"
+    )
+    
+@pytest.mark.parametrize("expected_sigma_sq_S_times_12", [
+    0.0791015625 * 12  # Based on manual calculation for the given P matrix
+])
+def test_sigma_sq_S_X1_times_12(checkerboard_copula, expected_sigma_sq_S_times_12):
+    """
+    Tests the calculation of sigma_sq_S for X1.
+    """
+    calculated_sigma_sq_S = checkerboard_copula.calculate_sigma_sq_S_X1()
+    np.testing.assert_almost_equal(
+        calculated_sigma_sq_S * 12,
+        expected_sigma_sq_S_times_12,
+        decimal=5,
+        err_msg=f"Sigma squared S for X1 times 12 does not match the expected value {expected_sigma_sq_S_times_12}"
+    )
+    
+@pytest.mark.parametrize("expected_sigma_sq_S_vectorized_times_12", [
+    0.0791015625 * 12  # Based on manual calculation for the given P matrix
+])
+def test_sigma_sq_S_X1_vectorized_times_12(checkerboard_copula, expected_sigma_sq_S_vectorized_times_12):
+    """
+    Tests the vectorized calculation of sigma_sq_S for X1.
+    """
+    calculated_sigma_sq_S_vectorized = checkerboard_copula.calculate_sigma_sq_S_X1_vectorized()
+    np.testing.assert_almost_equal(
+        calculated_sigma_sq_S_vectorized * 12,
+        expected_sigma_sq_S_vectorized_times_12,
+        decimal=5,
+        err_msg=f"Vectorized sigma squared S for X1 does not match the expected value {expected_sigma_sq_S_vectorized_times_12}"
     )
     
 @pytest.mark.parametrize("expected_SCCRAM", [
     0.84375 / (12 * 0.0703125)  # Based on manual calculation for the given P matrix
 ])
-def test_SCCRAM(checkerboard_copula, expected_SCCRAM):
+def test_SCCRAM_X1_X2(checkerboard_copula, expected_SCCRAM):
     """
     Tests the calculation of the standardized Checkerboard Copula Regression Association Measure (SCCRAM).
     """
@@ -264,7 +361,7 @@ def test_SCCRAM(checkerboard_copula, expected_SCCRAM):
 @pytest.mark.parametrize("expected_SCCRAM_vectorized", [
     0.84375 / (12 * 0.0703125)  # Based on manual calculation for the given P matrix
 ])
-def test_SCCRAM_vectorized(checkerboard_copula, expected_SCCRAM_vectorized):
+def test_SCCRAM_X1_X2_vectorized(checkerboard_copula, expected_SCCRAM_vectorized):
     """
     Tests the vectorized calculation of the standardized Checkerboard Copula Regression Association Measure (SCCRAM).
     """
@@ -274,4 +371,34 @@ def test_SCCRAM_vectorized(checkerboard_copula, expected_SCCRAM_vectorized):
         expected_SCCRAM_vectorized,
         decimal=5,
         err_msg=f"Vectorized SCCRAM for X1 and X2 does not match the expected value {expected_SCCRAM_vectorized}"
+    )
+
+@pytest.mark.parametrize("expected_SCCRAM", [
+    0.0 / (0.0791015625 * 12)  # Based on manual calculation for the given P matrix
+])
+def test_SCCRAM_X2_X1(checkerboard_copula, expected_SCCRAM):
+    """
+    Tests the calculation of the standardized Checkerboard Copula Regression Association Measure (SCCRAM) for X2 --> X1.
+    """
+    calculated_SCCRAM = checkerboard_copula.calculate_SCCRAM_X2_X1()
+    np.testing.assert_almost_equal(
+        calculated_SCCRAM,
+        expected_SCCRAM,
+        decimal=5,
+        err_msg=f"SCCRAM for X2 --> X1 does not match the expected value {expected_SCCRAM}"
+    )
+    
+@pytest.mark.parametrize("expected_SCCRAM_vectorized", [
+    0.0 / (0.0791015625 * 12)  # Based on manual calculation for the given P matrix
+])
+def test_SCCRAM_X2_X1_vectorized(checkerboard_copula, expected_SCCRAM_vectorized):
+    """
+    Tests the vectorized calculation of the standardized Checkerboard Copula Regression Association Measure (SCCRAM) for X2 --> X1.
+    """
+    calculated_SCCRAM_vectorized = checkerboard_copula.calculate_SCCRAM_X2_X1_vectorized()
+    np.testing.assert_almost_equal(
+        calculated_SCCRAM_vectorized,
+        expected_SCCRAM_vectorized,
+        decimal=5,
+        err_msg=f"Vectorized SCCRAM for X2 --> X1 does not match the expected value {expected_SCCRAM_vectorized}"
     )

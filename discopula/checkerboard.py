@@ -26,6 +26,7 @@ class CheckerboardCopula:
 
         self.conditional_pmf_X2_given_X1 = self.calculate_conditional_pmf_X2_given_X1()
         self.conditional_pmf_X1_given_X2 = self.calculate_conditional_pmf_X1_given_X2()
+        
         self.scores_X1 = self.calculate_checkerboard_scores(self.marginal_cdf_X1)
         self.scores_X2 = self.calculate_checkerboard_scores(self.marginal_cdf_X2)
 
@@ -128,9 +129,48 @@ class CheckerboardCopula:
                 
         return results
     
+    def calculate_regression_U1_on_U2(self, u2):
+        """
+        Calculates the checkerboard copula regression of U1 on U2.
+        For a given value u2, returns r(u2) which represents E[U1|U2=u2].
+        """
+        # Define the breakpoints from the marginal CDF
+        breakpoints = self.marginal_cdf_X2[1:-1]  # Remove 0 and 1
+        # Find which interval u2 falls into
+        interval_idx = np.searchsorted(breakpoints, u2, side='left')
+        # Get the conditional PMF for the determined interval
+        conditional_pmf = self.conditional_pmf_X1_given_X2[:,interval_idx]
+        
+        # Calculate regression value using the conditional PMF and scores
+        regression_value = np.sum(conditional_pmf * self.scores_X1)
+        return regression_value
+    
+    def calculate_regression_U1_on_U2_batched(self, u2_values):
+        """
+        Vectorized version of calculate_regression_U1_on_U2 that can handle arrays of u2 values.
+        """
+        # Convert input to numpy array if it isn't already
+        u2_values = np.asarray(u2_values)
+        
+        # Initialize output array
+        results = np.zeros_like(u2_values, dtype=float)
+        
+        # Find intervals for all u2 values at once
+        # Use searchsorted with side='left' to handle edge cases correctly
+        intervals = np.searchsorted(self.marginal_cdf_X2[1:-1], u2_values, side='left')
+        
+        # Calculate regression values for each unique interval
+        for interval_idx in np.unique(intervals):
+            mask = (intervals == interval_idx)
+            conditional_pmf = self.conditional_pmf_X1_given_X2[:,interval_idx]
+            regression_value = np.sum(conditional_pmf * self.scores_X1)
+            results[mask] = regression_value
+            
+        return results
+    
     def calculate_CCRAM_X1_X2(self):
         """
-        Calculates the Checkerboard Copula Regression Association Measure (CCRAM) for X1 and X2.
+        Calculates the Checkerboard Copula Regression Association Measure (CCRAM) for X1 --> X2.
         """
         weighted_expectation = 0.0
         for p_x1, u1 in zip(self.marginal_pdf_X1, self.marginal_cdf_X1[1:]):
@@ -147,7 +187,26 @@ class CheckerboardCopula:
         weighted_expectation = np.sum(self.marginal_pdf_X1 * (regression_values - 0.5) ** 2)
         return 12 * weighted_expectation
     
-    def calculate_sigma_sq_S(self):
+    def calculate_CCRAM_X2_X1(self):
+        """
+        Calculates the Checkerboard Copula Regression Association Measure (CCRAM) for X2 --> X1.
+        """
+        weighted_expectation = 0.0
+        for p_x2, u2 in zip(self.marginal_pdf_X2, self.marginal_cdf_X2[1:]):
+            regression_value = self.calculate_regression_U1_on_U2(u2)
+            weighted_expectation += p_x2 * (regression_value - 0.5) ** 2
+        return 12 * weighted_expectation
+    
+    def calculate_CCRAM_X2_X1_vectorized(self):
+        """
+        Vectorized version of calculate_CCRAM_X2_X1 that can handle arrays of u2
+        values.
+        """
+        regression_values = self.calculate_regression_U1_on_U2_batched(self.marginal_cdf_X2[1:])
+        weighted_expectation = np.sum(self.marginal_pdf_X2 * (regression_values - 0.5) ** 2)
+        return 12 * weighted_expectation
+    
+    def calculate_sigma_sq_S_X2(self):
         """
         Calculates the variance of the checkerboard copula score S.
         Formula: σ²_Sⱼ = Σᵢⱼ₌₁^Iⱼ û_ᵢⱼ₋₁ û_ᵢⱼ p̂₊ᵢⱼ₊/4
@@ -168,7 +227,7 @@ class CheckerboardCopula:
         
         return sigma_sq_S
     
-    def calculate_sigma_sq_S_vectorized(self):
+    def calculate_sigma_sq_S_X2_vectorized(self):
         """
         Calculates the variance of the checkerboard copula score S using vectorized operations.
         Formula: σ²_Sⱼ = Σᵢⱼ₌₁^Iⱼ û_ᵢⱼ₋₁ û_ᵢⱼ p̂₊ᵢⱼ₊/4 (vectorized)
@@ -185,23 +244,78 @@ class CheckerboardCopula:
         
         return sigma_sq_S
     
+    def calculate_sigma_sq_S_X1(self):
+        """
+        Calculates the variance of the checkerboard copula score S.
+        Formula: σ²_Sⱼ = Σᵢⱼ₌₁^Iⱼ û_ᵢⱼ₋₁ û_ᵢⱼ p̂₊ᵢⱼ₊/4
+        """
+        # Get consecutive CDF values
+        u_prev = self.marginal_cdf_X1[:-1]  # û_ᵢⱼ₋₁
+        u_next = self.marginal_cdf_X1[1:]  # û_ᵢⱼ
+        
+        # Calculate each term in the sum
+        terms = []
+        for i in range(len(self.marginal_pdf_X1)):
+            if i < len(u_prev) and i < len(u_next):
+                term = u_prev[i] * u_next[i] * self.marginal_pdf_X1[i]
+                terms.append(term)
+        
+        # Calculate sigma_sq_S
+        sigma_sq_S = sum(terms) / 4.0
+        
+        return sigma_sq_S
+    
+    def calculate_sigma_sq_S_X1_vectorized(self):
+        """
+        Calculates the variance of the checkerboard copula score S using vectorized operations.
+        Formula: σ²_Sⱼ = Σᵢⱼ₌₁^Iⱼ û_ᵢⱼ₋₁ û_ᵢⱼ p̂₊ᵢⱼ₊/4 (vectorized)
+        """
+        # Get consecutive CDF values
+        u_prev = self.marginal_cdf_X1[:-1]  # û_ᵢⱼ₋₁
+        u_next = self.marginal_cdf_X1[1:] # û_ᵢⱼ
+        
+        # Vectorized multiplication of all terms
+        terms = u_prev * u_next * self.marginal_pdf_X1
+        
+        # Calculate sigma_sq_S
+        sigma_sq_S = np.sum(terms) / 4.0
+        
+        return sigma_sq_S
+    
     def calculate_SCCRAM_X1_X2(self):
         """
-        Calculates the standardized Checkerboard Copula Regression Association Measure (SCCRAM) for X1 and X2.
+        Calculates the standardized Checkerboard Copula Regression Association Measure (SCCRAM) for X1 --> X2.
         """
         ccram = self.calculate_CCRAM_X1_X2()
-        sigma_sq_S = self.calculate_sigma_sq_S()
+        sigma_sq_S = self.calculate_sigma_sq_S_X2()
         return ccram / (12 * sigma_sq_S)
     
     def calculate_SCCRAM_X1_X2_vectorized(self):
         """
-        Calculates the standardized Checkerboard Copula Regression Association Measure (SCCRAM) for X1 and X2
+        Calculates the standardized Checkerboard Copula Regression Association Measure (SCCRAM) for X1 --> X2
         using vectorized operations.
         """
         ccram_vectorized = self.calculate_CCRAM_X1_X2_vectorized()
-        sigma_sq_S_vectorized = self.calculate_sigma_sq_S_vectorized()
+        sigma_sq_S_vectorized = self.calculate_sigma_sq_S_X2_vectorized()
         return ccram_vectorized / (12 * sigma_sq_S_vectorized)
 
+    def calculate_SCCRAM_X2_X1(self):
+        """
+        Calculates the standardized Checkerboard Copula Regression Association Measure (SCCRAM) for X2 --> X1.
+        """
+        ccram = self.calculate_CCRAM_X2_X1()
+        sigma_sq_S = self.calculate_sigma_sq_S_X1()
+        return ccram / (12 * sigma_sq_S)
+    
+    def calculate_SCCRAM_X2_X1_vectorized(self):
+        """
+        Calculates the standardized Checkerboard Copula Regression Association Measure (SCCRAM) for X2 --> X1
+        using vectorized operations.
+        """
+        ccram_vectorized = self.calculate_CCRAM_X2_X1_vectorized()
+        sigma_sq_S_vectorized = self.calculate_sigma_sq_S_X1_vectorized()
+        return ccram_vectorized / (12 * sigma_sq_S_vectorized)
+    
 # For quick testing purposes
 """
 if __name__ == '__main__':
@@ -214,6 +328,4 @@ if __name__ == '__main__':
     ])
     
     cop = CheckerboardCopula(P)
-    print(cop.calculate_SCCRAM_X1_X2())
-    print(cop.calculate_SCCRAM_X1_X2_vectorized())
 """
