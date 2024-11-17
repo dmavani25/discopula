@@ -1,11 +1,47 @@
 import numpy as np
 
+import numpy as np
+
 class CheckerboardCopula:
     """
     A class to calculate the checkerboard copula density and scores for ordinal random vectors,
     including regression functionality for conditional copula scores.
     """
-
+    
+    @classmethod
+    def from_contingency_table(cls, contingency_table):
+        """
+        Alternative constructor that creates a CheckerboardCopula instance from a contingency table.
+        
+        Args:
+            contingency_table (numpy.ndarray): A 2D contingency table of counts/frequencies
+            
+        Returns:
+            CheckerboardCopula: A new instance initialized with the probability matrix
+            
+        Raises:
+            ValueError: If the input table contains negative values or all zeros
+        """
+        # Input validation
+        if not isinstance(contingency_table, np.ndarray):
+            contingency_table = np.array(contingency_table)
+            
+        if contingency_table.ndim != 2:
+            raise ValueError("Contingency table must be 2-dimensional")
+            
+        if np.any(contingency_table < 0):
+            raise ValueError("Contingency table cannot contain negative values")
+            
+        total_count = contingency_table.sum()
+        if total_count == 0:
+            raise ValueError("Contingency table cannot be all zeros")
+            
+        # Convert to probability matrix
+        P = contingency_table / total_count
+        
+        # Create new instance
+        return cls(P)
+    
     def __init__(self, P):
         """
         Initializes the CheckerboardCopula with the joint probability matrix P and
@@ -14,21 +50,44 @@ class CheckerboardCopula:
         Args:
             P (numpy.ndarray): The joint probability matrix.
         """
+        # Input validation for P
+        if not isinstance(P, np.ndarray):
+            P = np.array(P)
+            
+        if P.ndim != 2:
+            raise ValueError("Probability matrix P must be 2-dimensional")
+            
+        if np.any(P < 0) or np.any(P > 1):
+            raise ValueError("Probability matrix P must contain values between 0 and 1")
+        
+        if not np.allclose(P.sum(), 1.0, rtol=1e-10, atol=1e-10):
+            raise ValueError("Probability matrix P must sum to 1")
+        
         self.P = P
         
-        # Normalized cumulative sums for marginal CDFs to ensure they are proper CDFs ranging from 0 to 1.
-        self.marginal_cdf_X1 = np.insert(np.cumsum(P.sum(axis=1)) / P.sum(), 0, 0)  # Marginal CDF for X1
-        self.marginal_cdf_X2 = np.insert(np.cumsum(P.sum(axis=0)) / P.sum(), 0, 0)  # Marginal CDF for X2
-
-        # Marginal PDFs (densities are just the probabilities for discrete distributions)
-        self.marginal_pdf_X1 = P.sum(axis=1) / P.sum()  # Marginal PDF for X1
-        self.marginal_pdf_X2 = P.sum(axis=0) / P.sum()  # Marginal PDF for X2
-
+        self.marginal_pdf_X1 = P.sum(axis=1) / P.sum()
+        self.marginal_pdf_X2 = P.sum(axis=0) / P.sum()
+        self.marginal_cdf_X1 = np.insert(np.cumsum(P.sum(axis=1)) / P.sum(), 0, 0)
+        self.marginal_cdf_X2 = np.insert(np.cumsum(P.sum(axis=0)) / P.sum(), 0, 0)
+        
         self.conditional_pmf_X2_given_X1 = self.calculate_conditional_pmf_X2_given_X1()
         self.conditional_pmf_X1_given_X2 = self.calculate_conditional_pmf_X1_given_X2()
         
         self.scores_X1 = self.calculate_checkerboard_scores(self.marginal_cdf_X1)
         self.scores_X2 = self.calculate_checkerboard_scores(self.marginal_cdf_X2)
+
+    @property
+    def contingency_table(self):
+        """
+        Returns the probability matrix converted back to the original scale.
+        This is an approximation since the exact original counts cannot be recovered.
+        
+        Returns:
+            numpy.ndarray: The contingency table (rounded to nearest integer)
+        """
+        # Multiply by the smallest number that makes all entries close to integers
+        scale = 1 / np.min(self.P[self.P > 0]) if np.any(self.P > 0) else 1
+        return np.round(self.P * scale).astype(int)
 
     def calculate_conditional_pmf_X2_given_X1(self):
         """

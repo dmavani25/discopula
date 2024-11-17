@@ -17,6 +17,102 @@ def checkerboard_copula():
     ])
     return CheckerboardCopula(P)
 
+@pytest.fixture
+def contingency_table():
+    """
+    Fixture to create a sample contingency table.
+    """
+    return np.array([
+        [0, 0, 20],
+        [0, 10, 0],
+        [20, 0, 0],
+        [0, 10, 0],
+        [0, 0, 20]
+    ])
+
+def test_from_contingency_table_valid(contingency_table):
+    """
+    Test creation of CheckerboardCopula from valid contingency table.
+    """
+    cop = CheckerboardCopula.from_contingency_table(contingency_table)
+    expected_P = contingency_table / contingency_table.sum()
+    np.testing.assert_array_almost_equal(cop.P, expected_P)
+
+def test_from_contingency_table_list():
+    """
+    Test creation of CheckerboardCopula from list instead of numpy array.
+    """
+    table_list = [
+        [0, 0, 20],
+        [0, 10, 0],
+        [20, 0, 0],
+        [0, 10, 0],
+        [0, 0, 20]
+    ]
+    cop = CheckerboardCopula.from_contingency_table(table_list)
+    assert isinstance(cop.P, np.ndarray)
+    assert cop.P.shape == (5, 3)
+
+@pytest.mark.parametrize("invalid_table,error_msg", [
+    (np.array([[1, 2], [3, -1]]), "Contingency table cannot contain negative values"),
+    (np.array([[0, 0], [0, 0]]), "Contingency table cannot be all zeros"),
+    (np.array([1, 2, 3]), "Contingency table must be 2-dimensional"),
+    (np.array([[[1, 2], [3, 4]]]), "Contingency table must be 2-dimensional")
+])
+def test_from_contingency_table_invalid(invalid_table, error_msg):
+    """
+    Test creation of CheckerboardCopula with invalid contingency tables.
+    """
+    with pytest.raises(ValueError, match=error_msg):
+        CheckerboardCopula.from_contingency_table(invalid_table)
+
+def test_contingency_table_property(contingency_table):
+    """
+    Test the contingency_table property returns approximately the original scale.
+    """
+    cop = CheckerboardCopula.from_contingency_table(contingency_table)
+    recovered_table = cop.contingency_table
+    # Check that the ratios between non-zero elements are preserved
+    non_zero_orig = contingency_table[contingency_table > 0]
+    non_zero_recovered = recovered_table[recovered_table > 0]
+    ratio_orig = non_zero_orig / non_zero_orig.min()
+    ratio_recovered = non_zero_recovered / non_zero_recovered.min()
+    np.testing.assert_array_almost_equal(ratio_orig, ratio_recovered)
+
+@pytest.mark.parametrize("invalid_P,error_msg", [
+    (np.array([[0.5, 0.6], [0.2, 0.2]]), "Probability matrix P must sum to 1"),
+    (np.array([[0.5, -0.1], [0.3, 0.3]]), "Probability matrix P must contain values between 0 and 1"),
+    (np.array([[1.5, 0.1], [0.3, 0.3]]), "Probability matrix P must contain values between 0 and 1"),
+    (np.array([0.2, 0.8]), "Probability matrix P must be 2-dimensional")
+])
+def test_invalid_probability_matrix(invalid_P, error_msg):
+    """
+    Test constructor with invalid probability matrices.
+    """
+    with pytest.raises(ValueError, match=error_msg):
+        CheckerboardCopula(invalid_P)
+
+def test_zero_probability_handling(contingency_table):
+    """
+    Test that zero probabilities are handled correctly in conditional PMFs.
+    """
+    cop = CheckerboardCopula.from_contingency_table(contingency_table)
+    
+    # Check that conditional PMFs sum to 1 for non-zero rows/columns
+    non_zero_rows = np.where(contingency_table.sum(axis=1) > 0)[0]
+    for row in non_zero_rows:
+        np.testing.assert_almost_equal(
+            cop.conditional_pmf_X2_given_X1[row].sum(),
+            1.0
+        )
+    
+    non_zero_cols = np.where(contingency_table.sum(axis=0) > 0)[0]
+    for col in non_zero_cols:
+        np.testing.assert_almost_equal(
+            cop.conditional_pmf_X1_given_X2[:,col].sum(),
+            1.0
+        )
+
 @pytest.mark.parametrize("expected_cdf_X1, expected_cdf_X2", [
     ([0, 2/8, 3/8, 5/8, 6/8, 1], [0, 2/8, 4/8, 1])
 ])
@@ -401,4 +497,32 @@ def test_SCCRAM_X2_X1_vectorized(checkerboard_copula, expected_SCCRAM_vectorized
         expected_SCCRAM_vectorized,
         decimal=5,
         err_msg=f"Vectorized SCCRAM for X2 --> X1 does not match the expected value {expected_SCCRAM_vectorized}"
+    )
+    
+def test_copula_calculations_equivalence(contingency_table):
+    """
+    Test that calculations give same results whether initialized with 
+    probability matrix or contingency table.
+    """
+    # Create copulas from probability matrix and contingency table
+    P = contingency_table / contingency_table.sum()
+    cop_from_P = CheckerboardCopula(P)
+    cop_from_table = CheckerboardCopula.from_contingency_table(contingency_table)
+    
+    # Test various calculations
+    np.testing.assert_array_almost_equal(
+        cop_from_P.calculate_CCRAM_X1_X2(),
+        cop_from_table.calculate_CCRAM_X1_X2()
+    )
+    np.testing.assert_array_almost_equal(
+        cop_from_P.calculate_SCCRAM_X1_X2(),
+        cop_from_table.calculate_SCCRAM_X1_X2()
+    )
+    np.testing.assert_array_almost_equal(
+        cop_from_P.calculate_CCRAM_X2_X1(),
+        cop_from_table.calculate_CCRAM_X2_X1()
+    )
+    np.testing.assert_array_almost_equal(
+        cop_from_P.calculate_SCCRAM_X2_X1(),
+        cop_from_table.calculate_SCCRAM_X2_X1()
     )
