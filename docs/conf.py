@@ -13,14 +13,7 @@ author = "Dhyey Mavani"
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
-extensions = [
-    'sphinx.ext.autodoc',
-    'sphinx.ext.autosummary',
-    'sphinx.ext.napoleon',
-    'sphinx.ext.viewcode',
-    'autodoc2',
-    'myst_parser',
-]
+extensions = ["myst_parser", "autodoc2"]
 
 templates_path = ["_templates"]
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
@@ -28,17 +21,8 @@ exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 autodoc2_render_plugin = "myst"
 
 autodoc2_packages = [
-    {"path": "../discopula", "exclude_dirs": ["templates"], "auto_mode": True}
+    {"path": "../discopula", "exclude_dirs": ["templates"], "auto_mode": False}
 ]
-
-# Configure MyST-Parser
-myst_enable_extensions = [
-    "colon_fence",
-    "deflist"
-]
-
-# Generate API documentation
-autosummary_generate = True
 
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
