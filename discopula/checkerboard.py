@@ -1,7 +1,5 @@
 import numpy as np
 
-import numpy as np
-
 class CheckerboardCopula:
     """
     A class to calculate the checkerboard copula density and scores for ordinal random vectors,
