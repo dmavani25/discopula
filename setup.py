@@ -7,14 +7,14 @@ AUTHOR = "Dhyey Mavani"
 AUTHOR_EMAIL = "ddmavani2003@gmail.com"
 DESCRIPTION = "This package is for discrete copula modeling and implementation of new scoring methods pertaining to ordinal and categorical discrete data."
 LICENSE = "MIT"
-KEYWORDS = "copula"
+KEYWORDS = "discrete-copula"
 URL = "https://github.com/DhyeyMavani2003/" + NAME
 README = ".github/README.md"
 CLASSIFIERS = [
     "Programming Language :: Cython",
     "Programming Language :: Python",
 ]
-INSTALL_REQUIRES = []
+INSTALL_REQUIRES = ["numpy"]
 ENTRY_POINTS = {}
 SCRIPTS = []
 
