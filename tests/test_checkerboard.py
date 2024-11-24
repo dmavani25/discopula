@@ -1,5 +1,5 @@
 import numpy as np
-from discopula.checkerboard import CheckerboardCopula
+from discopula import CheckerboardCopula
 import pytest
 
 @pytest.fixture
