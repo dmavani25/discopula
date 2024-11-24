@@ -21,7 +21,7 @@ Visit [Read the Docs](https://discopula.readthedocs.org) for the full documentat
 
 ```python
 import numpy as np
-from discopula.checkerboard import CheckerboardCopula
+from discopula import CheckerboardCopula
 
 # Create a sample contingency table
 contingency_table = np.array([

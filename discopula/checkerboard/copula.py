@@ -13,7 +13,13 @@ CheckerboardCopula
 Example
 -------
 >>> import numpy as np
->>> P = np.array([[0.25, 0], [0, 0.75]])  
+>>> P = np.array([
+        [0, 0, 2/8],
+        [0, 1/8, 0],
+        [2/8, 0, 0],
+        [0, 1/8, 0],
+        [0, 0, 2/8]
+    ])  
 >>> copula = CheckerboardCopula(P)
 >>> sccram = copula.calculate_SCCRAM_X1_X2()
 
@@ -80,7 +86,13 @@ class CheckerboardCopula:
 
         Examples
         --------
-        >>> table = np.array([[10, 5], [2, 8]])
+        >>> table = np.array([
+            [0, 0, 20],
+            [0, 10, 0],
+            [20, 0, 0],
+            [0, 10, 0],
+            [0, 0, 20]
+        ])
         >>> copula = CheckerboardCopula.from_contingency_table(table)
         """
         if not isinstance(contingency_table, np.ndarray):
@@ -234,7 +246,7 @@ class CheckerboardCopula:
         Notes
         -----
         The conditional PMF is calculated as:
-            P(X1|X2) = P(X1,X2) / P(X2)
+            P(X1|X2) = P(X1, X2) / P(X2)
         where P(X2) is obtained by summing P(X1,X2) over all values of X1 (column sums).
         
         See Also
@@ -318,7 +330,6 @@ class CheckerboardCopula:
         --------
         >>> cdf = np.array([0.2, 0.5, 1.0])
         >>> scores = calculate_checkerboard_scores(cdf)
-        >>> # Returns: array([0.35, 0.75])
 
         See Also
         --------
@@ -362,7 +373,6 @@ class CheckerboardCopula:
         --------
         >>> copula = CheckerboardCopula(P)
         >>> reg_value = copula.calculate_regression_U2_on_U1(0.5)
-        >>> # Returns expected value of U2 given U1 = 0.5
 
         See Also
         --------

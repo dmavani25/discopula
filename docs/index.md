@@ -4,16 +4,32 @@
 
 [![build](https://github.com/dmavani25/discopula/actions/workflows/test.yaml/badge.svg)](https://github.com/dmavani25/discopula/actions/workflows/test.yaml)
 [![Documentation Status](https://readthedocs.org/projects/discopula/badge/?version=latest)](https://discopula.readthedocs.io/en/latest/?badge=latest)
-[![Coverage Status](https://coveralls.io/repos/github/dmavani25/discopula/badge.svg?branch=master)](https://coveralls.io/github/dmavani25/discopula?branch=master)
+[![Coverage Status](https://coveralls.io/repos/github/dmavani25/discopula/badge.png?branch=master)](https://coveralls.io/github/dmavani25/discopula?branch=master)
 [![Built with PyPi Template](https://img.shields.io/badge/PyPi_Template-v0.6.1-blue.svg)](https://github.com/christophevg/pypi-template)
 
+## Installation
 
+```bash
+pip install discopula
+```
+
+## Documentation
+
+Visit [Read the Docs](https://discopula.readthedocs.org) for the full documentation, including overviews and several examples.
+
+## Features
+
+- Construction of checkerboard copulas from contingency tables
+- Calculation of marginal distributions and CDFs
+- Computation of conditional expectations (regression)
+- Implementation of Checkerboard Copula Regression Association Measure (CCRAM)
+- Standardized CCRAM calculations
+- Vectorized implementations for improved performance
 
 ## Contents
 
 ```{toctree}
 :maxdepth: 1
-whats-in-the-box.md
 getting-started.md
 contributing.md
 code.md
