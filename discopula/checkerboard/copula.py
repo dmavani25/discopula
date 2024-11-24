@@ -25,9 +25,9 @@ Example
 
 References
 ----------
-.. [1] Genest, C. and J. Nešlehová (2007). A primer on copulas for count data.
+- [1] Genest, C. and J. Nešlehová (2007). A primer on copulas for count data.
        Astin Bulletin 37(2), 475–515.
-.. [2] Wei, Zheng & Kim, Daeyoung, 2021. "On exploratory analytic method for 
+- [2] Wei, Zheng & Kim, Daeyoung, 2021. "On exploratory analytic method for 
         multi-way contingency tables with an ordinal response variable and 
         categorical explanatory variables," Journal of Multivariate Analysis.
 """
