@@ -33,6 +33,7 @@ References
 """
 
 import numpy as np
+from scipy.stats import bootstrap
 
 class CheckerboardCopula:
     """
@@ -982,6 +983,14 @@ class CheckerboardCopula:
         """
         ccram = self.calculate_CCRAM_X1_X2()
         sigma_sq_S = self.calculate_sigma_sq_S_X2()
+        
+        # Handle edge case where variance is zero
+        if sigma_sq_S < 1e-10:  # Use small threshold instead of exact 0
+            if ccram < 1e-10:
+                return 0.0  # No association case
+            else:
+                return 1.0  # Perfect association case
+        
         return ccram / (12 * sigma_sq_S)
     
     def calculate_SCCRAM_X1_X2_vectorized(self):
@@ -1023,7 +1032,16 @@ class CheckerboardCopula:
         """
         ccram_vectorized = self.calculate_CCRAM_X1_X2_vectorized()
         sigma_sq_S_vectorized = self.calculate_sigma_sq_S_X2_vectorized()
+        
+        # Handle edge case where variance is zero
+        if sigma_sq_S_vectorized < 1e-10:  # Use small threshold instead of exact 0
+            if ccram_vectorized < 1e-10:
+                return 0.0  # No association case
+            else:
+                return 1.0  # Perfect association case
+                
         return ccram_vectorized / (12 * sigma_sq_S_vectorized)
+
 
     def calculate_SCCRAM_X2_X1(self):
         """Calculate standardized CCRAM for X2 -> X1 relationship.
@@ -1061,6 +1079,14 @@ class CheckerboardCopula:
         """
         ccram = self.calculate_CCRAM_X2_X1()
         sigma_sq_S = self.calculate_sigma_sq_S_X1()
+        
+        # Handle edge case where variance is zero
+        if sigma_sq_S < 1e-10:  # Use small threshold instead of exact 0
+            if ccram < 1e-10:
+                return 0.0  # No association case
+            else:
+                return 1.0  # Perfect association case
+        
         return ccram / (12 * sigma_sq_S)
     
     def calculate_SCCRAM_X2_X1_vectorized(self):
@@ -1102,18 +1128,93 @@ class CheckerboardCopula:
         """
         ccram_vectorized = self.calculate_CCRAM_X2_X1_vectorized()
         sigma_sq_S_vectorized = self.calculate_sigma_sq_S_X1_vectorized()
+        
+        # Handle edge case where variance is zero
+        if sigma_sq_S_vectorized < 1e-10:  # Use small threshold instead of exact 0
+            if ccram_vectorized < 1e-10:
+                return 0.0  # No association case
+            else:
+                return 1.0  # Perfect association case
+                
         return ccram_vectorized / (12 * sigma_sq_S_vectorized)
     
-# For quick testing purposes
-"""
-if __name__ == '__main__':
-    P = np.array([
-        [0, 0, 2/8],
-        [0, 1/8, 0],
-        [2/8, 0, 0],
-        [0, 1/8, 0],
-        [0, 0, 2/8]
-    ])
+def contingency_to_case_form(contingency_table):
+    """
+    Convert a contingency table to case form for bootstrapping.
     
-    cop = CheckerboardCopula(P)
-"""
+    Args:
+        contingency_table (np.ndarray): A 2D array representing the contingency table.
+        
+    Returns:
+        np.ndarray: An array of cases where each row corresponds to an observation [x1, x2].
+    """
+    rows, cols = contingency_table.shape
+    cases = []
+    for i in range(rows):
+        for j in range(cols):
+            cases.extend([[i, j]] * contingency_table[i, j])
+    return np.array(cases)
+
+def bootstrap_ccram(sample1, sample2, axis=-1):
+    """
+    Statistic function for bootstrapping CCRAM using CheckerboardCopula.
+    
+    Args:
+        sample1 (np.ndarray): Subset of ordinal variable 1.
+        sample2 (np.ndarray): Subset of ordinal variable 2.
+        axis (int): Axis along which to compute the statistic (required for bootstrap).
+        
+    Returns:
+        np.ndarray: Array of CCRAM value(s) for X1 --> X2.
+    """
+    if axis != -1:
+        # Reshape the data along the specified axis
+        sample1 = np.moveaxis(sample1, axis, 0)
+        sample2 = np.moveaxis(sample2, axis, 0)
+    
+    results = []
+    for s1, s2 in zip(sample1, sample2):
+        # Combine samples into a contingency table
+        data = np.vstack((s1, s2)).T
+        contingency_table, _, _ = np.histogram2d(
+            data[:, 0], data[:, 1], 
+            bins=[len(np.unique(sample1)), len(np.unique(sample2))]
+        )
+        
+        if np.sum(contingency_table) == 80:
+            # Initialize CheckerboardCopula
+            cop = CheckerboardCopula.from_contingency_table(contingency_table)
+            results.append(cop.calculate_CCRAM_X1_X2_vectorized())
+    
+    # Ensure output is always an array
+    return np.array(results).flatten()
+
+# For quick testing purposes
+if __name__ == '__main__':
+    import numpy as np
+    from scipy.stats import bootstrap
+
+    # Example contingency table
+    contingency_table = np.array([[0, 0, 20], 
+                                  [0, 10, 0], 
+                                  [20, 0, 0], 
+                                  [0, 10, 0], 
+                                  [0, 0, 20]])
+
+    cases = contingency_to_case_form(contingency_table)
+
+    # Separate variables for bootstrapping
+    x1, x2 = cases[:, 0], cases[:, 1]
+    data = (x1, x2)
+
+    # Perform bootstrapping
+    res = bootstrap(data, bootstrap_ccram, method='percentile', paired=True, n_resamples=10000, confidence_level=0.95)
+
+    copu = CheckerboardCopula.from_contingency_table(contingency_table)
+    print(copu.calculate_CCRAM_X1_X2_vectorized())
+    
+    # Results
+    print("Bootstrap Distribution:", res.bootstrap_distribution)
+    print("Bootstrap Mean:", np.mean(res.bootstrap_distribution))
+    print("Confidence Interval:", res.confidence_interval)
+    print("Standard Error:", res.standard_error)
