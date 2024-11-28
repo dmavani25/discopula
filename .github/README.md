@@ -10,8 +10,37 @@
 
 ## Installation
 
+This package (discopula) is hosted on PyPi, so for installation follow the following workflow ...
+
+```console
+$ pip install discopula
+```
+
+Alternatively, if you would like to have a virtual environment for your use of this package, then follow the following workflow. For best practices, it's recommended to use a virtual environment:
+
+1. First, create and activate a virtual environment (Python 3.8+ recommended):
+
 ```bash
-pip install discopula
+# Create virtual environment
+$ python -m venv discopula-env
+
+# Activate virtual environment (Mac/Linux)
+$ source discopula-env/bin/activate
+
+# Verify you're in the virtual environment
+$ which python
+```
+
+2. Install package
+
+```bash
+$ pip install discopula
+```
+
+3. To deactivate the virtual environment, when done:
+
+```bash
+$ deactivate
 ```
 
 ## Documentation
@@ -71,6 +100,8 @@ SCCRAM X1->X2: 1.000000
 - Implementation of Checkerboard Copula Regression Association Measure (CCRAM)
 - Standardized CCRAM calculations
 - Vectorized implementations for improved performance
+- Bootstrap functionality for CCRAM, SCCRAM, and Checkerboard Copula Regression
+- Rigorous Edge-case Handling & Unit Testing with Pytest 
 
 ## Contributing
 
