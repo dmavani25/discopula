@@ -10,3 +10,5 @@ sphinxcontrib-qthelp
 sphinxcontrib-serializinghtml
 myst-parser
 docutils
+sphinx-latex
+latexmk
