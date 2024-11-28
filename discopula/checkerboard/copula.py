@@ -1138,6 +1138,195 @@ class CheckerboardCopula:
                 
         return ccram_vectorized / (12 * sigma_sq_S_vectorized)
     
+    def get_predicted_category(self, regression_value, marginal_cdf):
+        """Get predicted category based on regression value.
+        
+        Parameters
+        ----------
+        regression_value : float
+            Value from CCR regression function (between 0 and 1)
+        marginal_cdf : array-like 
+            Marginal CDF values defining category boundaries
+            
+        Returns
+        -------
+        int
+            Index of predicted category (0-based)
+            
+        Notes
+        -----
+        Finds category i* where u_{i*-1} < regression_value ≤ u_{i*}
+        """
+        # searchsorted finds index where regression_value would be inserted 
+        # to maintain order - this gives us the category index
+        i_star = np.searchsorted(marginal_cdf[1:-1], regression_value, side='left')
+        return i_star
+    
+    def get_predicted_category_batched(self, regression_values, marginal_cdf):
+        """Get predicted categories for a batch of regression values.
+        
+        Parameters
+        ----------
+        regression_values : numpy.ndarray or array-like
+            Array of regression values to predict categories for (between 0 and 1)
+        marginal_cdf : array-like
+            Marginal CDF values defining category boundaries
+            
+        Returns
+        -------
+        numpy.ndarray
+        Array of predicted category indices (0-based)
+        """
+        # searchsorted finds index where regression_value would be inserted
+        # to maintain order - this gives us the category index
+        return np.searchsorted(marginal_cdf[1:-1], regression_values, side='left')
+
+    def predict_X2_from_X1(self, x1_category):
+        """Predict category of X2 given category of X1.
+        
+        Parameters
+        ----------
+        x1_category : int
+            Category index of X1 (0-based)
+            
+        Returns
+        -------
+        int
+            Predicted category index for X2 (0-based)
+        """
+        # Get corresponding u1 value for given X1 category
+        u1 = self.marginal_cdf_X1[x1_category + 1]  # +1 since CDF includes 0
+        
+        # Get regression value 
+        u2_star = self.calculate_regression_U2_on_U1(u1)
+        
+        # Get predicted category
+        return self.get_predicted_category(u2_star, self.marginal_cdf_X2)
+    
+    def predict_X2_from_X1_batched(self, x1_categories):
+        """Vectorized prediction of X2 given X1 categories.
+        
+        Predicts the category of X2 given categories of X1 for multiple
+        X1 values simultaneously using vectorized operations.
+
+        Parameters
+        ----------
+        x1_categories : numpy.ndarray or array-like
+            Array of category indices for X1 (0-based) for which to predict X2.
+
+        Returns
+        -------
+        numpy.ndarray
+            Array of predicted category indices for X2 (0-based) with the same shape
+            as the input array.
+
+        Notes
+        -----
+        Implementation steps:
+        1. Convert input to numpy array if it isn't already
+        2. Get corresponding u1 values for all X1 categories
+        3. Compute regression values E[U2|U1] for all u1 values
+        4. Get predicted categories for all regression values
+
+        This vectorized version is more efficient than calling predict_X2_from_X1()
+        repeatedly for large input arrays.
+
+        Examples
+        --------
+        >>> copula = CheckerboardCopula(P)
+        >>> x1s = np.array([0, 1, 1])
+        >>> x2s = copula.predict_X2_from_X1_batched(x1s)
+
+        See Also
+        --------
+        predict_X2_from_X1 : Single-value version of this method
+        predict_X1_from_X2_batched : Vectorized reverse prediction
+        """
+        # Convert input to numpy array if it isn't already
+        x1_categories = np.asarray(x1_categories)
+        
+        # Get corresponding u1 values for all X1 categories
+        u1_values = self.marginal_cdf_X1[x1_categories + 1]
+        
+        # Compute regression values for all u1 values
+        u2_star_values = self.calculate_regression_U2_on_U1_batched(u1_values)
+        
+        # Get predicted categories for all regression values
+        return self.get_predicted_category_batched(u2_star_values, self.marginal_cdf_X2)
+    
+    def predict_X1_from_X2(self, x2_category):
+        """Predict category of X1 given category of X2.
+        
+        Parameters
+        ----------
+        x2_category : int
+            Category index of X2 (0-based)
+            
+        Returns
+        -------
+        int
+            Predicted category index for X1 (0-based)
+        """
+        # Get corresponding u2 value for given X2 category
+        u2 = self.marginal_cdf_X2[x2_category + 1]
+        
+        # Get regression value
+        u1_star = self.calculate_regression_U1_on_U2(u2)
+        
+        # Get predicted category
+        return self.get_predicted_category(u1_star, self.marginal_cdf_X1)
+    
+    def predict_X1_from_X2_batched(self, x2_categories):
+        """Vectorized prediction of X1 given X2 categories.
+        
+        Predicts the category of X1 given categories of X2 for multiple
+        X2 values simultaneously using vectorized operations.
+
+        Parameters
+        ----------
+        x2_categories : numpy.ndarray or array-like
+            Array of category indices for X2 (0-based) for which to predict X1.
+
+        Returns
+        -------
+        numpy.ndarray
+            Array of predicted category indices for X1 (0-based) with the same shape
+            as the input array.
+
+        Notes
+        -----
+        Implementation steps:
+        1. Convert input to numpy array if it isn't already
+        2. Get corresponding u2 values for all X2 categories
+        3. Compute regression values E[U1|U2] for all u2 values
+        4. Get predicted categories for all regression values
+
+        This vectorized version is more efficient than calling predict_X1_from_X2()
+        repeatedly for large input arrays.
+
+        Examples
+        --------
+        >>> copula = CheckerboardCopula(P)
+        >>> x1s = np.array([0, 1, 1])
+        >>> x2s = copula.predict_X1_from_X2_batched(x1s)
+
+        See Also
+        --------
+        predict_X1_from_X2 : Single-value version of this method
+        predict_X2_from_X1_batched : Vectorized reverse prediction
+        """
+        # Convert input to numpy array if it isn't already
+        x2_categories = np.asarray(x2_categories)
+        
+        # Get corresponding u2 values for all X2 categories
+        u2_values = self.marginal_cdf_X2[x2_categories + 1]
+        
+        # Compute regression values for all u2 values
+        u1_star_values = self.calculate_regression_U1_on_U2_batched(u2_values)
+        
+        # Get predicted categories for all regression values
+        return self.get_predicted_category_batched(u1_star_values, self.marginal_cdf_X1)
+        
 def contingency_to_case_form(contingency_table):
     """Convert a contingency table to case-form data representation.
     
@@ -1738,6 +1927,270 @@ def bootstrap_regression_U2_on_U1_vectorized(contingency_table, u1_values, n_res
         
     return results
 
+def bootstrap_predict_X2_from_X1(contingency_table, x1_category, n_resamples=9999, confidence_level=0.95, method='BCa', random_state=None):
+    """Calculate bootstrap confidence intervals for predicting X2 category from X1.
+    
+    Parameters
+    ----------
+    contingency_table : numpy.ndarray
+        2D array representing contingency table of observed frequencies.
+    x1_category : int
+        The X1 category index for which to predict X2 (0-based).
+    n_resamples : int, default=9999
+        Number of bootstrap resamples to generate.
+    confidence_level : float, default=0.95
+        Confidence level for interval calculation (between 0 and 1).
+    method : {'percentile', 'basic', 'BCa'}, default='BCa'
+        Method to calculate bootstrap confidence intervals.
+    random_state : {None, int, numpy.random.Generator,
+                   numpy.random.RandomState}, optional
+        Random state for reproducibility.
+
+    Returns
+    -------
+    scipy.stats.BootstrapResult
+        Object containing:
+        - confidence_interval: namedtuple with low and high bounds
+        - bootstrap_distribution: array of predicted X2 categories for resamples
+        - standard_error: bootstrap estimate of standard error
+
+    Examples
+    --------
+    >>> table = np.array([[10, 0], [0, 10]])
+    >>> result = bootstrap_predict_X2_from_X1(table, x1_category=0)
+    >>> print(f"95% CI: ({result.confidence_interval.low:.4f}, "
+    ...       f"{result.confidence_interval.high:.4f})")
+    """
+    # Convert contingency table to case form
+    cases = contingency_to_case_form(contingency_table)
+    
+    # Split into X1 and X2 variables
+    x1, x2 = cases[:, 0], cases[:, 1]
+    data = (x1, x2)
+    
+    def prediction_stat(x1, x2, axis=0):
+        # Handle batched data
+        if x1.ndim > 1:
+            batch_size = x1.shape[0]
+            cases = np.stack([np.column_stack((x1[i], x2[i])) 
+                            for i in range(batch_size)])
+        else:
+            cases = np.column_stack((x1, x2))
+            
+        n_rows, n_cols = contingency_table.shape
+        resampled_table = case_form_to_contingency(cases, n_rows, n_cols)
+        
+        # Handle single vs batched tables
+        if resampled_table.ndim == 3:
+            results = []
+            for table in resampled_table:
+                copula = CheckerboardCopula.from_contingency_table(table)
+                results.append(copula.predict_X2_from_X1(x1_category))
+            return np.array(results)
+        else:
+            copula = CheckerboardCopula.from_contingency_table(resampled_table)
+            return copula.predict_X2_from_X1(x1_category)
+
+    # Perform bootstrap
+    res = bootstrap(
+        data,
+        prediction_stat, 
+        n_resamples=n_resamples,
+        confidence_level=confidence_level,
+        method=method,
+        random_state=random_state,
+        paired=True,
+        vectorized=True
+    )
+    
+    return res
+
+def bootstrap_predict_X2_from_X1_vectorized(contingency_table, x1_categories, n_resamples=9999, confidence_level=0.95, method='BCa', random_state=None):
+    """Calculate bootstrap confidence intervals for predicting X2 from multiple X1 categories.
+    
+    Parameters
+    ----------
+    contingency_table : numpy.ndarray
+        2D array representing contingency table of observed frequencies.
+    x1_categories : array-like
+        Array of X1 category indices for which to predict X2 (0-based).
+    n_resamples : int, default=9999
+        Number of bootstrap resamples to generate.
+    confidence_level : float, default=0.95
+        Confidence level for interval calculation (between 0 and 1).
+    method : {'percentile', 'basic', 'BCa'}, default='BCa'
+        Method to calculate bootstrap confidence intervals.
+    random_state : {None, int, numpy.random.Generator,
+                   numpy.random.RandomState}, optional
+        Random state for reproducibility.
+
+    Returns
+    -------
+    list of scipy.stats.BootstrapResult
+        List of bootstrap results for each X1 category, each containing:
+        - confidence_interval: namedtuple with low and high bounds
+        - bootstrap_distribution: array of predicted X2 categories for resamples
+        - standard_error: bootstrap estimate of standard error
+
+    Examples
+    --------
+    >>> table = np.array([[10, 0], [0, 10]])
+    >>> x1s = np.array([0, 1])
+    >>> results = bootstrap_predict_X2_from_X1_vectorized(table, x1s)
+    >>> for x1, res in zip(x1s, results):
+    ...     print(f"X1={x1}: CI=({res.confidence_interval.low:.4f}, "
+    ...           f"{res.confidence_interval.high:.4f})")
+    """
+    # Input validation
+    x1_categories = np.asarray(x1_categories)
+    
+    # Perform bootstrap for each x1 category
+    results = []
+    for x1_cat in x1_categories:
+        res = bootstrap_predict_X2_from_X1(
+            contingency_table, 
+            x1_cat,
+            n_resamples=n_resamples,
+            confidence_level=confidence_level,
+            method=method,
+            random_state=random_state
+        )
+        results.append(res)
+        
+    return results
+
+def bootstrap_predict_X1_from_X2(contingency_table, x2_category, n_resamples=9999, confidence_level=0.95, method='BCa', random_state=None):
+    """Calculate bootstrap confidence intervals for predicting X1 category from X2.
+    
+    Parameters
+    ----------
+    contingency_table : numpy.ndarray
+        2D array representing contingency table of observed frequencies.
+    x2_category : int
+        The X2 category index for which to predict X1 (0-based).
+    n_resamples : int, default=9999
+        Number of bootstrap resamples to generate.
+    confidence_level : float, default=0.95
+        Confidence level for interval calculation (between 0 and 1).
+    method : {'percentile', 'basic', 'BCa'}, default='BCa'
+        Method to calculate bootstrap confidence intervals.
+    random_state : {None, int, numpy.random.Generator,
+                   numpy.random.RandomState}, optional
+        Random state for reproducibility.
+
+    Returns
+    -------
+    scipy.stats.BootstrapResult
+        Object containing:
+        - confidence_interval: namedtuple with low and high bounds
+        - bootstrap_distribution: array of predicted X1 categories for resamples
+        - standard_error: bootstrap estimate of standard error
+
+    Examples
+    --------
+    >>> table = np.array([[10, 0], [0, 10]])
+    >>> result = bootstrap_predict_X1_from_X2(table, x2_category=0)
+    >>> print(f"95% CI: ({result.confidence_interval.low:.4f}, "
+    ...       f"{result.confidence_interval.high:.4f})")
+    """
+    # Convert contingency table to case form
+    cases = contingency_to_case_form(contingency_table)
+    
+    # Split into X1 and X2 variables
+    x1, x2 = cases[:, 0], cases[:, 1]
+    data = (x1, x2)
+    
+    def prediction_stat(x1, x2, axis=0):
+        # Handle batched data
+        if x1.ndim > 1:
+            batch_size = x1.shape[0]
+            cases = np.stack([np.column_stack((x1[i], x2[i])) 
+                            for i in range(batch_size)])
+        else:
+            cases = np.column_stack((x1, x2))
+            
+        n_rows, n_cols = contingency_table.shape
+        resampled_table = case_form_to_contingency(cases, n_rows, n_cols)
+        
+        # Handle single vs batched tables
+        if resampled_table.ndim == 3:
+            results = []
+            for table in resampled_table:
+                copula = CheckerboardCopula.from_contingency_table(table)
+                results.append(copula.predict_X1_from_X2(x2_category))
+            return np.array(results)
+        else:
+            copula = CheckerboardCopula.from_contingency_table(resampled_table)
+            return copula.predict_X1_from_X2(x2_category)
+
+    # Perform bootstrap
+    res = bootstrap(
+        data,
+        prediction_stat, 
+        n_resamples=n_resamples,
+        confidence_level=confidence_level,
+        method=method,
+        random_state=random_state,
+        paired=True,
+        vectorized=True
+    )
+    
+    return res
+
+def bootstrap_predict_X1_from_X2_vectorized(contingency_table, x2_categories, n_resamples=9999, confidence_level=0.95, method='BCa', random_state=None):
+    """Calculate bootstrap confidence intervals for predicting X1 from multiple X2 categories.
+    
+    Parameters
+    ----------
+    contingency_table : numpy.ndarray
+        2D array representing contingency table of observed frequencies.
+    x2_categories : array-like
+        Array of X2 category indices for which to predict X1 (0-based).
+    n_resamples : int, default=9999
+        Number of bootstrap resamples to generate.
+    confidence_level : float, default=0.95
+        Confidence level for interval calculation (between 0 and 1).
+    method : {'percentile', 'basic', 'BCa'}, default='BCa'
+        Method to calculate bootstrap confidence intervals.
+    random_state : {None, int, numpy.random.Generator,
+                   numpy.random.RandomState}, optional
+        Random state for reproducibility.
+
+    Returns
+    -------
+    list of scipy.stats.BootstrapResult
+        List of bootstrap results for each X2 category, each containing:
+        - confidence_interval: namedtuple with low and high bounds
+        - bootstrap_distribution: array of predicted X1 categories for resamples
+        - standard_error: bootstrap estimate of standard error
+
+    Examples
+    --------
+    >>> table = np.array([[10, 0], [0, 10]])
+    >>> x2s = np.array([0, 1])
+    >>> results = bootstrap_predict_X1_from_X2_vectorized(table, x2s)
+    >>> for x2, res in zip(x2s, results):
+    ...     print(f"X2={x2}: CI=({res.confidence_interval.low:.4f}, "
+    ...           f"{res.confidence_interval.high:.4f})")
+    """
+    # Input validation
+    x2_categories = np.asarray(x2_categories)
+    
+    # Perform bootstrap for each x2 category
+    results = []
+    for x2_cat in x2_categories:
+        res = bootstrap_predict_X1_from_X2(
+            contingency_table, 
+            x2_cat,
+            n_resamples=n_resamples,
+            confidence_level=confidence_level,
+            method=method,
+            random_state=random_state
+        )
+        results.append(res)
+        
+    return results
+
 # Temporarily commented out for testing
 """
 if __name__ == "__main__":
@@ -1752,23 +2205,21 @@ if __name__ == "__main__":
         [0, 0, 10]
     ])
 
-    # Single u2 value
-    result = bootstrap_regression_U1_on_U2(table, u2=0.5)
-    print(f"CI for u2=0.5: ({result.confidence_interval.low:.4f}, {result.confidence_interval.high:.4f})")
+    # Copula object from contingency table
+    copula = CheckerboardCopula.from_contingency_table(table)
 
-    # Multiple u2 values
-    u2_values = np.linspace(0, 1, 5)
-    results = bootstrap_regression_U1_on_U2_vectorized(table, u2_values)
-    for u2, res in zip(u2_values, results):
-        print(f"u2={u2:.2f}: CI=({res.confidence_interval.low:.4f}, {res.confidence_interval.high:.4f})")
-        
-    # Single u1 value
-    result = bootstrap_regression_U2_on_U1(table, u1=0.5)
-    print(f"CI for u1=0.5: ({result.confidence_interval.low:.4f}, {result.confidence_interval.high:.4f})")
-    
-    # Multiple u1 values
-    u1_values = np.linspace(0, 1, 5)
-    results = bootstrap_regression_U2_on_U1_vectorized(table, u1_values)
-    for u1, res in zip(u1_values, results):
-        print(f"u1={u1:.2f}: CI=({res.confidence_interval.low:.4f}, {res.confidence_interval.high:.4f})")
+    # Single prediction with confidence interval
+    x1_category = 4
+    result = bootstrap_predict_X2_from_X1(table, x1_category, method='percentile')
+    print(f"Predicted X2 category: {result.confidence_interval.low:.1f} - {result.confidence_interval.high:.1f}")
+    print(f"Standard error: {result.standard_error:.4f}")
+    print(f"Bootstrap distribution: {result.bootstrap_distribution}")
+
+    # Multiple predictions with confidence intervals
+    x1_categories = np.array([0, 1, 2, 3, 4])
+    results = bootstrap_predict_X2_from_X1_vectorized(table, x1_categories, method='percentile')
+    for x1, res in zip(x1_categories, results):
+        print(f"X1={x1}: Predicted X2 category {res.confidence_interval.low:.1f} - {res.confidence_interval.high:.1f}")
+        print(f"Standard error: {res.standard_error:.4f}")
+        print(f"Bootstrap distribution: {res.bootstrap_distribution}")
 """

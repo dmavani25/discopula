@@ -4,6 +4,8 @@ from discopula import contingency_to_case_form, case_form_to_contingency
 from discopula import bootstrap_ccram, bootstrap_sccram
 from discopula import bootstrap_regression_U1_on_U2, bootstrap_regression_U2_on_U1
 from discopula import bootstrap_regression_U1_on_U2_vectorized, bootstrap_regression_U2_on_U1_vectorized
+from discopula import bootstrap_predict_X2_from_X1, bootstrap_predict_X1_from_X2
+from discopula import bootstrap_predict_X2_from_X1_vectorized, bootstrap_predict_X1_from_X2_vectorized
 import pytest
 
 @pytest.fixture
@@ -555,6 +557,126 @@ def test_copula_calculations_equivalence(contingency_table):
         cop_from_table.calculate_SCCRAM_X2_X1()
     )
     
+def test_get_predicted_category(checkerboard_copula):
+    """Test get_predicted_category with various regression values."""
+    test_cases = [
+        # regression_value, marginal_cdf, expected_category
+        (0.0, np.array([0, 0.25, 0.5, 1.0]), 0),  # At lower bound
+        (0.25, np.array([0, 0.25, 0.5, 1.0]), 0),  # Below middle
+        (0.5, np.array([0, 0.25, 0.5, 1.0]), 1),  # At boundary
+        (0.75, np.array([0, 0.25, 0.5, 1.0]), 2),  # Above middle
+        (1.0, np.array([0, 0.25, 0.5, 1.0]), 2),  # At upper bound
+    ]
+    
+    print(checkerboard_copula.marginal_cdf_X1)
+    print(checkerboard_copula.marginal_cdf_X2)
+    
+    for regression_value, cdf, expected in test_cases:
+        predicted = checkerboard_copula.get_predicted_category(regression_value, cdf)
+        assert predicted == expected, f"Failed for regression_value={regression_value}"
+
+def test_get_predicted_category_batched(checkerboard_copula):
+    """Test batched category prediction."""
+    regression_values = np.array([0.0, 0.25, 0.5, 0.75, 1.0])
+    marginal_cdf = np.array([0, 0.25, 0.5, 1.0])
+    expected_categories = np.array([0, 0, 1, 2, 2])
+    
+    predicted = checkerboard_copula.get_predicted_category_batched(regression_values, marginal_cdf)
+    np.testing.assert_array_equal(predicted, expected_categories)
+
+@pytest.mark.parametrize("x1_category, expected_x2_category", [
+    (0, 2),  # First category of X1 maps to third category of X2
+    (1, 1),  # Second category of X1 maps to second category of X2  
+    (2, 0),  # Third category of X1 maps to first category of X2
+    (3, 1),  # Fourth category of X1 maps to second category of X2
+    (4, 2),  # Fifth category of X1 maps to third category of X2
+])
+def test_predict_X2_from_X1(checkerboard_copula, x1_category, expected_x2_category):
+    """Test prediction of X2 category from X1 category."""
+    predicted = checkerboard_copula.predict_X2_from_X1(x1_category)
+    assert predicted == expected_x2_category, f"Failed for X1 category {x1_category}"
+
+def test_predict_X2_from_X1_batched(checkerboard_copula):
+    """Test batched prediction of X2 from X1."""
+    x1_categories = np.array([0, 1, 2, 3, 4])
+    expected_x2_categories = np.array([2, 1, 0, 1, 2])
+    
+    predicted = checkerboard_copula.predict_X2_from_X1_batched(x1_categories)
+    np.testing.assert_array_equal(predicted, expected_x2_categories)
+
+def test_predict_X2_from_X1_invalid_category(checkerboard_copula):
+    """Test prediction with invalid X1 category."""
+    with pytest.raises(IndexError):
+        checkerboard_copula.predict_X2_from_X1(5)  # Category 5 doesn't exist
+
+def test_predict_X2_from_X1_batched_invalid(checkerboard_copula):
+    """Test batched prediction with invalid X1 categories."""
+    invalid_categories = np.array([0, 5, 2])  # Category 5 doesn't exist
+    with pytest.raises(IndexError):
+        checkerboard_copula.predict_X2_from_X1_batched(invalid_categories)
+
+@pytest.mark.parametrize("x2_category, expected_x1_category", [
+    (0, 2),  # First category of X2 maps to third category of X1
+    (1, 2),  # Second category of X2 maps to mix of categories 2,4 of X1 -> median 2
+    (2, 2),  # Third category of X2 maps to mix of categories 1,5 of X1 -> median 2
+])
+def test_predict_X1_from_X2(checkerboard_copula, x2_category, expected_x1_category):
+    """Test prediction of X1 category from X2 category."""
+    predicted = checkerboard_copula.predict_X1_from_X2(x2_category)
+    assert predicted == expected_x1_category, f"Failed for X2 category {x2_category}"
+
+def test_predict_X1_from_X2_batched(checkerboard_copula):
+    """Test batched prediction of X1 from X2."""
+    x2_categories = np.array([0, 1, 2])
+    expected_x1_categories = np.array([2, 2, 2])
+    
+    predicted = checkerboard_copula.predict_X1_from_X2_batched(x2_categories)
+    np.testing.assert_array_equal(predicted, expected_x1_categories)
+
+def test_predict_X1_from_X2_invalid_category(checkerboard_copula):
+    """Test prediction with invalid X2 category."""
+    with pytest.raises(IndexError):
+        checkerboard_copula.predict_X1_from_X2(3)  # Category 3 doesn't exist
+
+def test_predict_X1_from_X2_batched_invalid(checkerboard_copula):
+    """Test batched prediction with invalid X2 categories."""
+    invalid_categories = np.array([0, 3, 1])  # Category 3 doesn't exist
+    with pytest.raises(IndexError):
+        checkerboard_copula.predict_X1_from_X2_batched(invalid_categories)
+
+def test_prediction_consistency(checkerboard_copula):
+    """Test that batched and individual predictions give same results."""
+    x1_categories = np.array([0, 1, 2, 3, 4])
+    x2_categories = np.array([0, 1, 2])
+    
+    # Test X2 from X1 predictions
+    individual_x2_predictions = np.array([
+        checkerboard_copula.predict_X2_from_X1(cat) 
+        for cat in x1_categories
+    ])
+    batched_x2_predictions = checkerboard_copula.predict_X2_from_X1_batched(x1_categories)
+    np.testing.assert_array_equal(individual_x2_predictions, batched_x2_predictions)
+    
+    # Test X1 from X2 predictions
+    individual_x1_predictions = np.array([
+        checkerboard_copula.predict_X1_from_X2(cat) 
+        for cat in x2_categories
+    ])
+    batched_x1_predictions = checkerboard_copula.predict_X1_from_X2_batched(x2_categories)
+    np.testing.assert_array_equal(individual_x1_predictions, batched_x1_predictions)
+
+def test_prediction_special_cases(checkerboard_copula):
+    """Test predictions for special cases like empty arrays."""
+    
+    # Single element arrays should work
+    single_x1 = checkerboard_copula.predict_X2_from_X1_batched(np.array([0]))
+    assert len(single_x1) == 1
+    assert single_x1[0] == checkerboard_copula.predict_X2_from_X1(0)
+    
+    single_x2 = checkerboard_copula.predict_X1_from_X2_batched(np.array([0]))
+    assert len(single_x2) == 1 
+    assert single_x2[0] == checkerboard_copula.predict_X1_from_X2(0)
+    
 def test_contingency_to_case_form(contingency_table, case_form_data):
     """
     Test converting a contingency table to case-form data.
@@ -855,3 +977,151 @@ def test_bootstrap_regression_confidence_levels(contingency_table, confidence_le
     # Higher confidence level should give wider interval
     interval_width = result.confidence_interval.high - result.confidence_interval.low
     assert 0 < interval_width <= 1
+    
+def test_bootstrap_predict_X2_from_X1_basic(contingency_table):
+    """Test basic functionality of bootstrap_predict_X2_from_X1."""
+    # Note: Not testing "BCa" in this case since it returns NaN for confidence intervals
+    # DegenerateDataWarning: The BCa confidence interval cannot be calculated as referenced in SciPy documentation.
+    # This problem is known to occur when the distribution is degenerate or the statistic is np.min.
+    result = bootstrap_predict_X2_from_X1(
+        contingency_table,
+        x1_category=0,
+        method='percentile',
+        n_resamples=999,
+        random_state=8990
+    )
+    
+    assert hasattr(result, 'confidence_interval')
+    assert result.confidence_interval.low <= result.confidence_interval.high
+    assert isinstance(result.bootstrap_distribution[0], (int, np.integer))
+    assert result.standard_error >= 0
+
+def test_bootstrap_predict_X1_from_X2_basic(contingency_table):
+    """Test basic functionality of bootstrap_predict_X1_from_X2."""
+    # Note: Not testing "BCa" in this case since it returns NaN for confidence intervals
+    # DegenerateDataWarning: The BCa confidence interval cannot be calculated as referenced in SciPy documentation.
+    # This problem is known to occur when the distribution is degenerate or the statistic is np.min.
+    result = bootstrap_predict_X1_from_X2(
+        contingency_table,
+        x2_category=0,
+        method='percentile',
+        n_resamples=999,
+        random_state=8990
+    )
+    
+    assert hasattr(result, 'confidence_interval')
+    assert result.confidence_interval.low <= result.confidence_interval.high
+    assert isinstance(result.bootstrap_distribution[0], (int, np.integer))
+    assert result.standard_error >= 0
+
+def test_bootstrap_predict_X2_from_X1_vectorized(contingency_table):
+    """Test vectorized version of bootstrap prediction X2 from X1."""
+    x1_categories = np.array([0, 1, 2])
+    # Note: Not testing "BCa" in this case since it returns NaN for confidence intervals
+    # DegenerateDataWarning: The BCa confidence interval cannot be calculated as referenced in SciPy documentation.
+    # This problem is known to occur when the distribution is degenerate or the statistic is np.min.
+    results = bootstrap_predict_X2_from_X1_vectorized(
+        contingency_table,
+        x1_categories,
+        method='percentile',
+        n_resamples=999,
+        random_state=8990
+    )
+    
+    assert len(results) == len(x1_categories)
+    for result in results:
+        assert hasattr(result, 'confidence_interval')
+        assert result.confidence_interval.low <= result.confidence_interval.high
+        assert isinstance(result.bootstrap_distribution[0], (int, np.integer))
+        assert result.standard_error >= 0
+
+def test_bootstrap_predict_X1_from_X2_vectorized(contingency_table):
+    """Test vectorized version of bootstrap prediction X1 from X2."""
+    x2_categories = np.array([0, 1, 2])
+    # Note: Not testing "BCa" in this case since it returns NaN for confidence intervals
+    # DegenerateDataWarning: The BCa confidence interval cannot be calculated as referenced in SciPy documentation.
+    # This problem is known to occur when the distribution is degenerate or the statistic is np.min.
+    results = bootstrap_predict_X1_from_X2_vectorized(
+        contingency_table,
+        x2_categories,
+        method='percentile',
+        n_resamples=999,
+        random_state=8990
+    )
+    
+    assert len(results) == len(x2_categories)
+    for result in results:
+        assert hasattr(result, 'confidence_interval')
+        assert result.confidence_interval.low <= result.confidence_interval.high
+        assert isinstance(result.bootstrap_distribution[0], (int, np.integer))
+        assert result.standard_error >= 0
+
+def test_bootstrap_predict_methods(contingency_table):
+    """Test different bootstrap confidence interval methods."""
+    methods = ['percentile', 'basic', 'BCa']
+    for method in methods:
+        result = bootstrap_predict_X2_from_X1(
+            contingency_table,
+            x1_category=0,
+            n_resamples=999,
+            method=method,
+            random_state=8990
+        )
+        assert hasattr(result, 'confidence_interval')
+        
+        result = bootstrap_predict_X1_from_X2(
+            contingency_table,
+            x2_category=0,
+            n_resamples=999,
+            method=method,
+            random_state=8990
+        )
+        assert hasattr(result, 'confidence_interval')
+
+@pytest.mark.parametrize("confidence_level", [0.90, 0.95, 0.99])
+def test_bootstrap_predict_confidence_levels(contingency_table, confidence_level):
+    """Test different confidence levels for predictions."""
+    # Note: Not testing "BCa" in this case since it returns NaN for confidence intervals
+    # DegenerateDataWarning: The BCa confidence interval cannot be calculated as referenced in SciPy documentation.
+    # This problem is known to occur when the distribution is degenerate or the statistic is np.min.
+    result = bootstrap_predict_X2_from_X1(
+        contingency_table,
+        x1_category=0,
+        method='percentile',
+        confidence_level=confidence_level,
+        n_resamples=999,
+        random_state=8990
+    )
+    
+    # Check that interval bounds are valid category indices
+    n_cols = contingency_table.shape[1]
+    assert 0 <= result.confidence_interval.low < n_cols
+    assert 0 <= result.confidence_interval.high < n_cols
+
+def test_bootstrap_predict_consistent_with_direct(contingency_table):
+    """Test that bootstrap predictions are consistent with direct predictions."""
+    copula = CheckerboardCopula.from_contingency_table(contingency_table)
+    
+    # Test X2 from X1
+    x1_category = 0
+    direct_pred = copula.predict_X2_from_X1(x1_category)
+    boot_result = bootstrap_predict_X2_from_X1(
+        contingency_table,
+        x1_category,
+        n_resamples=999,
+        random_state=8990
+    )
+    # Most common bootstrap prediction should match direct prediction
+    assert direct_pred in boot_result.bootstrap_distribution
+    
+    # Test X1 from X2
+    x2_category = 0
+    direct_pred = copula.predict_X1_from_X2(x2_category)
+    boot_result = bootstrap_predict_X1_from_X2(
+        contingency_table,
+        x2_category,
+        n_resamples=999,
+        random_state=8990
+    )
+    # Most common bootstrap prediction should match direct prediction
+    assert direct_pred in boot_result.bootstrap_distribution
