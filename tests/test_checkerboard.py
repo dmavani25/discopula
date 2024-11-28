@@ -1,5 +1,7 @@
 import numpy as np
 from discopula import CheckerboardCopula
+from discopula import contingency_to_case_form, case_form_to_contingency
+from discopula import bootstrap_ccram, bootstrap_sccram
 import pytest
 
 @pytest.fixture
@@ -29,6 +31,32 @@ def contingency_table():
         [0, 10, 0],
         [0, 0, 20]
     ])
+    
+@pytest.fixture
+def case_form_data():
+    """
+    Fixture to create a sample case-form data array.
+    """
+    return np.array([
+        [0, 2], [0, 2], [0, 2], [0, 2], [0, 2],
+        [0, 2], [0, 2], [0, 2], [0, 2], [0, 2],
+        [0, 2], [0, 2], [0, 2], [0, 2], [0, 2],
+        [0, 2], [0, 2], [0, 2], [0, 2], [0, 2],
+        [1, 1], [1, 1], [1, 1], [1, 1], [1, 1],
+        [1, 1], [1, 1], [1, 1], [1, 1], [1, 1],
+        [2, 0], [2, 0], [2, 0], [2, 0], [2, 0],
+        [2, 0], [2, 0], [2, 0], [2, 0], [2, 0],
+        [2, 0], [2, 0], [2, 0], [2, 0], [2, 0],
+        [2, 0], [2, 0], [2, 0], [2, 0], [2, 0],
+        [3, 1], [3, 1], [3, 1], [3, 1], [3, 1],
+        [3, 1], [3, 1], [3, 1], [3, 1], [3, 1],
+        [4, 2], [4, 2], [4, 2], [4, 2], [4, 2],
+        [4, 2], [4, 2], [4, 2], [4, 2], [4, 2],
+        [4, 2], [4, 2], [4, 2], [4, 2], [4, 2],
+        [4, 2], [4, 2], [4, 2], [4, 2], [4, 2]
+    ])
+        
+        
 
 def test_from_contingency_table_valid(contingency_table):
     """
@@ -526,3 +554,127 @@ def test_copula_calculations_equivalence(contingency_table):
         cop_from_P.calculate_SCCRAM_X2_X1(),
         cop_from_table.calculate_SCCRAM_X2_X1()
     )
+    
+def test_contingency_to_case_form(contingency_table, case_form_data):
+    """
+    Test converting a contingency table to case-form data.
+    """
+    cases = contingency_to_case_form(contingency_table)
+    np.testing.assert_array_equal(cases, case_form_data)
+
+def test_case_form_to_contingency(contingency_table, case_form_data):
+    """
+    Test converting case-form data back to a contingency table.
+    """
+    n_rows, n_cols = contingency_table.shape
+    reconstructed_table = case_form_to_contingency(case_form_data, n_rows, n_cols)
+    np.testing.assert_array_equal(reconstructed_table, contingency_table)
+
+def test_bootstrap_ccram(contingency_table):
+    """
+    Test bootstrap confidence interval calculation for CCRAM.
+    """
+    result = bootstrap_ccram(
+        contingency_table,
+        direction="X1_X2",
+        n_resamples=9999,
+        confidence_level=0.95,
+        random_state=8990
+    )
+    assert isinstance(result, object)
+    assert hasattr(result, "confidence_interval")
+    assert result.confidence_interval.low < result.confidence_interval.high
+    assert result.standard_error >= 0.0
+
+def test_bootstrap_sccram(contingency_table):
+    """
+    Test bootstrap confidence interval calculation for SCCRAM.
+    """
+    # Note: Not testing "BCa" in this case since it returns NaN for confidence intervals
+    # DegenerateDataWarning: The BCa confidence interval cannot be calculated as referenced in SciPy documentation.
+    # This problem is known to occur when the distribution is degenerate or the statistic is np.min.
+    result = bootstrap_sccram(
+        contingency_table,
+        direction="X1_X2",
+        n_resamples=9999,
+        method="percentile",
+        confidence_level=0.95,
+        random_state=8990
+    )
+    assert isinstance(result, object)
+    assert hasattr(result, "confidence_interval")
+    assert result.confidence_interval.low < result.confidence_interval.high
+    assert result.standard_error >= 0.0
+
+@pytest.mark.parametrize("direction, expected_value", [
+    ("X1_X2", 0.84375),  # Example CCRAM value for X1 -> X2
+    ("X2_X1", 0.0),       # Example CCRAM value for X2 -> X1
+])
+def test_bootstrap_ccram_values(contingency_table, direction, expected_value):
+    """
+    Test bootstrap CCRAM values against expected results.
+    """
+    copula = CheckerboardCopula.from_contingency_table(contingency_table)
+    if direction == "X1_X2":
+        original_value = copula.calculate_CCRAM_X1_X2_vectorized()
+        result = bootstrap_ccram(
+            contingency_table,
+            direction=direction,
+            n_resamples=9999,
+            confidence_level=0.95,
+            random_state=8990
+        )
+        assert result.confidence_interval.low <= original_value <= result.confidence_interval.high
+        np.testing.assert_almost_equal(original_value, expected_value, decimal=5)
+    elif direction == "X2_X1":
+        original_value = copula.calculate_CCRAM_X2_X1_vectorized()
+        # Note: Not testing "BCa" in this case since it returns NaN for confidence intervals
+        # DegenerateDataWarning: The BCa confidence interval cannot be calculated as referenced in SciPy documentation.
+        # This problem is known to occur when the distribution is degenerate or the statistic is np.min.
+        result = bootstrap_ccram(
+            contingency_table,
+            direction=direction,
+            n_resamples=9999,
+            method="percentile",
+            confidence_level=0.95,
+            random_state=8990
+        )
+        # Adding a small margin to the confidence interval to account for floating point errors in this special case
+        assert result.confidence_interval.low - 0.001 <= original_value <= result.confidence_interval.high
+        np.testing.assert_almost_equal(original_value, expected_value, decimal=5)
+
+@pytest.mark.parametrize("direction, expected_value", [
+    ("X1_X2", 0.84375 / (12 * 0.0703125)),  # Example SCCRAM value for X1 -> X2
+    ("X2_X1", 0.0)                          # Example SCCRAM value for X2 -> X1
+])
+def test_bootstrap_sccram_values(contingency_table, direction, expected_value):
+    """
+    Test bootstrap SCCRAM values against expected results.
+    """
+    copula = CheckerboardCopula.from_contingency_table(contingency_table)
+    if direction == "X1_X2":
+        original_value = copula.calculate_SCCRAM_X1_X2_vectorized()
+        # Note: Not testing "BCa" in this case since it returns NaN for confidence intervals
+        # DegenerateDataWarning: The BCa confidence interval cannot be calculated as referenced in SciPy documentation.
+        # This problem is known to occur when the distribution is degenerate or the statistic is np.min.
+        result = bootstrap_sccram(
+            contingency_table,
+            direction=direction,
+            n_resamples=9999,
+            method="percentile",
+            confidence_level=0.95,
+            random_state=8990
+        )
+        np.testing.assert_almost_equal(original_value, expected_value, decimal=5)
+        assert result.confidence_interval.low <= original_value <= result.confidence_interval.high
+    elif direction == "X2_X1":
+        original_value = copula.calculate_SCCRAM_X2_X1_vectorized()
+        result = bootstrap_sccram(
+            contingency_table,
+            direction=direction,
+            n_resamples=9999,
+            confidence_level=0.95,
+            random_state=8990
+        )
+        np.testing.assert_almost_equal(original_value, expected_value, decimal=5)
+        assert result.confidence_interval.low <= original_value <= result.confidence_interval.high

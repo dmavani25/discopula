@@ -1139,82 +1139,328 @@ class CheckerboardCopula:
         return ccram_vectorized / (12 * sigma_sq_S_vectorized)
     
 def contingency_to_case_form(contingency_table):
-    """
-    Convert a contingency table to case form for bootstrapping.
+    """Convert a contingency table to case-form data representation.
     
-    Args:
-        contingency_table (np.ndarray): A 2D array representing the contingency table.
-        
-    Returns:
-        np.ndarray: An array of cases where each row corresponds to an observation [x1, x2].
+    Transforms a contingency table of counts into a sequence of individual cases,
+    where each case represents one observation with its row and column indices.
+    
+    Parameters
+    ----------
+    contingency_table : numpy.ndarray
+        A 2D array where entry (i,j) represents the count/frequency of 
+        observations in category i of variable X1 and category j of variable X2.
+        Must contain non-negative integers.
+
+    Returns
+    -------
+    numpy.ndarray
+        A 2D array of shape (N, 2) where N is the total count of observations.
+        Each row contains [i, j] indices representing one observation in 
+        category i of X1 and category j of X2.
+
+    Examples
+    --------
+    >>> table = np.array([[1, 0], [0, 2]])
+    >>> cases = contingency_to_case_form(table)
+    >>> print(cases)
+    [[0 0]
+     [1 1]
+     [1 1]]
+
+    Notes
+    -----
+    - Zero entries in the contingency table are skipped
+    - The output array length equals the sum of all entries in the table
+    - Each non-zero entry (i,j) with count k generates k copies of [i,j]
+    - Used for converting data to format needed by bootstrap resampling
+
+    See Also
+    --------
+    case_form_to_contingency : Inverse operation converting cases to table
+    get_bootstrap_ci_for_ccram : Uses this function for bootstrap preparation
     """
     rows, cols = contingency_table.shape
     cases = []
     for i in range(rows):
         for j in range(cols):
-            cases.extend([[i, j]] * contingency_table[i, j])
+            count = contingency_table[i, j]
+            if count > 0:
+                cases.extend([[i, j]] * count)
     return np.array(cases)
 
-def bootstrap_ccram(sample1, sample2, axis=-1):
+def case_form_to_contingency(cases, n_rows, n_cols):
+    """Convert case-form data to contingency table format.
+    
+    Transforms sequence of cases (individual observations) back into a contingency
+    table. Handles both single sample and batched (multiple resampled) data.
+    
+    Parameters
+    ----------
+    cases : numpy.ndarray
+        Either 2D array of shape (N, 2) for single sample or 3D array of shape
+        (n_samples, N, 2) for batched data. Each case is represented by [i,j]
+        indices for categories of X1 and X2.
+    n_rows : int
+        Number of rows (categories of X1) in output contingency table.
+    n_cols : int
+        Number of columns (categories of X2) in output contingency table.
+
+    Returns
+    -------
+    numpy.ndarray
+        If input is 2D: contingency table of shape (n_rows, n_cols)
+        If input is 3D: batch of tables of shape (n_samples, n_rows, n_cols)
+        Each entry (i,j) contains count of cases with indices [i,j].
+
+    Examples
+    --------
+    >>> cases = np.array([[0, 0], [1, 1], [1, 1]])
+    >>> table = case_form_to_contingency(cases, 2, 2)
+    >>> print(table)
+    [[1 0]
+     [0 2]]
+
+    Notes
+    -----
+    - Handles both single sample and batched data automatically
+    - For batched data, processes each sample independently
+    - Output dimensions determined by n_rows and n_cols parameters
+    - Used primarily in bootstrap resampling calculations
+
+    See Also
+    --------
+    contingency_to_case_form : Inverse operation converting table to cases
+    get_bootstrap_ci_for_ccram : Uses this function in bootstrap process
     """
-    Statistic function for bootstrapping CCRAM using CheckerboardCopula.
+    if cases.ndim == 3:  # Handling batched data
+        n_samples = cases.shape[0]
+        tables = np.zeros((n_samples, n_rows, n_cols), dtype=int)
+        for k in range(n_samples):
+            for case in cases[k]:
+                i, j = case
+                tables[k, i, j] += 1
+        return tables
+    else:  # Single sample
+        table = np.zeros((n_rows, n_cols), dtype=int)
+        for case in cases:
+            i, j = case
+            table[i, j] += 1
+        return table
+
+def bootstrap_ccram(contingency_table, direction="X1_X2", n_resamples=9999, confidence_level=0.95, method='BCa', random_state=None):
+    """Calculate bootstrap confidence intervals for CCRAM measure.
+
+    Performs bootstrap resampling to estimate confidence intervals for the
+    Checkerboard Copula Regression Association Measure (CCRAM) in specified direction (default X1 --> X2).
     
-    Args:
-        sample1 (np.ndarray): Subset of ordinal variable 1.
-        sample2 (np.ndarray): Subset of ordinal variable 2.
-        axis (int): Axis along which to compute the statistic (required for bootstrap).
-        
-    Returns:
-        np.ndarray: Array of CCRAM value(s) for X1 --> X2.
+    Parameters
+    ----------
+    contingency_table : numpy.ndarray
+        2D array representing contingency table of observed frequencies.
+    direction : {'X1_X2', 'X2_X1'}, default='X1_X2'
+    n_resamples : int, default=9999
+        Number of bootstrap resamples to generate.
+    confidence_level : float, default=0.95
+        Confidence level for interval calculation (between 0 and 1).
+    method : {'percentile', 'basic', 'BCa'}, default='BCa'
+        Method to calculate bootstrap confidence intervals:
+        - 'percentile': Standard percentile method
+        - 'basic': Basic bootstrap interval
+        - 'BCa': Bias-corrected and accelerated bootstrap
+    random_state : {None, int, numpy.random.Generator,
+                   numpy.random.RandomState}, optional
+        Random state for reproducibility.
+
+    Returns
+    -------
+    scipy.stats.BootstrapResult
+        Object containing:
+        - confidence_interval: namedtuple with low and high bounds
+        - bootstrap_distribution: array of CCRAM values for resamples
+        - standard_error: bootstrap estimate of standard error
+
+    Examples
+    --------
+    >>> table = np.array([[10, 0], [0, 10]])
+    >>> result = bootstrap_ccram(table, n_resamples=999)
+    >>> print(f"95% CI: ({result.confidence_interval.low:.4f}, "
+    ...       f"{result.confidence_interval.high:.4f})")
+
+    Notes
+    -----
+    Implementation process:
+    1. Converts contingency table to case form
+    2. Performs paired bootstrap resampling
+    3. Calculates CCRAM for each resample
+    4. Computes confidence intervals using specified method
+    
+    The BCa method is recommended as it corrects for both bias and skewness
+    in the bootstrap distribution.
+
+    See Also
+    --------
+    contingency_to_case_form : Converts table to resampling format
+    case_form_to_contingency : Converts resampled cases back to table
+    scipy.stats.bootstrap : Underlying bootstrap implementation
+
+    References
+    ----------
+    .. [1] Efron, B. (1987). "Better Bootstrap Confidence Intervals"
     """
-    if axis != -1:
-        # Reshape the data along the specified axis
-        sample1 = np.moveaxis(sample1, axis, 0)
-        sample2 = np.moveaxis(sample2, axis, 0)
-    
-    results = []
-    for s1, s2 in zip(sample1, sample2):
-        # Combine samples into a contingency table
-        data = np.vstack((s1, s2)).T
-        contingency_table, _, _ = np.histogram2d(
-            data[:, 0], data[:, 1], 
-            bins=[len(np.unique(sample1)), len(np.unique(sample2))]
-        )
-        
-        if np.sum(contingency_table) == 80:
-            # Initialize CheckerboardCopula
-            cop = CheckerboardCopula.from_contingency_table(contingency_table)
-            results.append(cop.calculate_CCRAM_X1_X2_vectorized())
-    
-    # Ensure output is always an array
-    return np.array(results).flatten()
-
-# For quick testing purposes
-if __name__ == '__main__':
-    import numpy as np
-    from scipy.stats import bootstrap
-
-    # Example contingency table
-    contingency_table = np.array([[0, 0, 20], 
-                                  [0, 10, 0], 
-                                  [20, 0, 0], 
-                                  [0, 10, 0], 
-                                  [0, 0, 20]])
-
+    # Convert contingency table to case form
     cases = contingency_to_case_form(contingency_table)
-
-    # Separate variables for bootstrapping
+    
+    # Split into X1 and X2 variables
     x1, x2 = cases[:, 0], cases[:, 1]
     data = (x1, x2)
-
-    # Perform bootstrapping
-    res = bootstrap(data, bootstrap_ccram, method='percentile', paired=True, n_resamples=10000, confidence_level=0.95)
-
-    copu = CheckerboardCopula.from_contingency_table(contingency_table)
-    print(copu.calculate_CCRAM_X1_X2_vectorized())
     
-    # Results
-    print("Bootstrap Distribution:", res.bootstrap_distribution)
-    print("Bootstrap Mean:", np.mean(res.bootstrap_distribution))
-    print("Confidence Interval:", res.confidence_interval)
-    print("Standard Error:", res.standard_error)
+    def ccram_stat(x1, x2, axis=0):
+        # Handle batched data
+        if x1.ndim > 1:
+            batch_size = x1.shape[0]
+            cases = np.stack([np.column_stack((x1[i], x2[i])) 
+                            for i in range(batch_size)])
+        else:
+            cases = np.column_stack((x1, x2))
+            
+        n_rows, n_cols = contingency_table.shape
+        resampled_table = case_form_to_contingency(cases, n_rows, n_cols)
+        
+        # Handle single vs batched tables
+        if resampled_table.ndim == 3:
+            results = []
+            for table in resampled_table:
+                copula = CheckerboardCopula.from_contingency_table(table)
+                if direction == "X1_X2":
+                    results.append(copula.calculate_CCRAM_X1_X2_vectorized())
+                elif direction == "X2_X1":
+                    results.append(copula.calculate_CCRAM_X2_X1_vectorized())
+                else:
+                    raise ValueError("Invalid direction. Use 'X1_X2' or 'X2_X1'")
+            return np.array(results)
+        else:
+            copula = CheckerboardCopula.from_contingency_table(resampled_table)
+            return copula.calculate_CCRAM_X1_X2_vectorized()
+
+    # Perform bootstrap
+    res = bootstrap(
+        data,
+        ccram_stat, 
+        n_resamples=n_resamples,
+        confidence_level=confidence_level,
+        method=method,
+        random_state=random_state,
+        paired=True,
+        vectorized=True
+    )
+    
+    return res
+
+def bootstrap_sccram(contingency_table, direction="X1_X2", n_resamples=9999, confidence_level=0.95, method='BCa', random_state=None):
+    """Calculate bootstrap confidence intervals for SCCRAM measure.
+
+    Performs bootstrap resampling to estimate confidence intervals for the
+    Scaled Checkerboard Copula Regression Association Measure (SCCRAM) in specified direction (default X1 --> X2).
+    
+    Parameters
+    ----------
+    contingency_table : numpy.ndarray
+        2D array representing contingency table of observed frequencies.
+    direction : {'X1_X2', 'X2_X1'}, default='X1_X2'
+    n_resamples : int, default=9999
+        Number of bootstrap resamples to generate.
+    confidence_level : float, default=0.95
+        Confidence level for interval calculation (between 0 and 1).
+    method : {'percentile', 'basic', 'BCa'}, default='BCa'
+        Method to calculate bootstrap confidence intervals:
+        - 'percentile': Standard percentile method
+        - 'basic': Basic bootstrap interval
+        - 'BCa': Bias-corrected and accelerated bootstrap
+    random_state : {None, int, numpy.random.Generator,
+                   numpy.random.RandomState}, optional
+        Random state for reproducibility.
+
+    Returns
+    -------
+    scipy.stats.BootstrapResult
+        Object containing:
+        - confidence_interval: namedtuple with low and high bounds
+        - bootstrap_distribution: array of SCCRAM values for resamples
+        - standard_error: bootstrap estimate of standard error
+
+    Examples
+    --------
+    >>> table = np.array([[10, 0], [0, 10]])
+    >>> result = bootstrap_sccram(table, n_resamples=999)
+    >>> print(f"95% CI: ({result.confidence_interval.low:.4f}, "
+    ...       f"{result.confidence_interval.high:.4f})")
+
+    Notes
+    -----
+    Implementation process:
+    1. Converts contingency table to case form
+    2. Performs paired bootstrap resampling
+    3. Calculates SCCRAM for each resample
+    4. Computes confidence intervals using specified method
+    
+    The BCa method is recommended as it corrects for both bias and skewness
+    in the bootstrap distribution.
+
+    See Also
+    --------
+    contingency_to_case_form : Converts table to resampling format
+    case_form_to_contingency : Converts resampled cases back to table
+    scipy.stats.bootstrap : Underlying bootstrap implementation
+
+    References
+    ----------
+    .. [1] Efron, B. (1987). "Better Bootstrap Confidence Intervals"
+    """
+    # Convert contingency table to case form
+    cases = contingency_to_case_form(contingency_table)
+    
+    # Split into X1 and X2 variables
+    x1, x2 = cases[:, 0], cases[:, 1]
+    data = (x1, x2)
+    
+    def sccram_stat(x1, x2, axis=0):
+        # Handle batched data
+        if x1.ndim > 1:
+            batch_size = x1.shape[0]
+            cases = np.stack([np.column_stack((x1[i], x2[i])) 
+                            for i in range(batch_size)])
+        else:
+            cases = np.column_stack((x1, x2))
+            
+        n_rows, n_cols = contingency_table.shape
+        resampled_table = case_form_to_contingency(cases, n_rows, n_cols)
+        
+        # Handle single vs batched tables
+        if resampled_table.ndim == 3:
+            results = []
+            for table in resampled_table:
+                copula = CheckerboardCopula.from_contingency_table(table)
+                if direction == "X1_X2":
+                    results.append(copula.calculate_SCCRAM_X1_X2_vectorized())
+                elif direction == "X2_X1":
+                    results.append(copula.calculate_SCCRAM_X2_X1_vectorized())
+                else:
+                    raise ValueError("Invalid direction. Use 'X1_X2' or 'X2_X1'")
+            return np.array(results)
+        else:
+            copula = CheckerboardCopula.from_contingency_table(resampled_table)
+            return copula.calculate_SCCRAM_X2_X1_vectorized()
+
+    # Perform bootstrap
+    res = bootstrap(
+        data,
+        sccram_stat, 
+        n_resamples=n_resamples,
+        confidence_level=confidence_level,
+        method=method,
+        random_state=random_state,
+        paired=True,
+        vectorized=True
+    )
+    
+    return res
