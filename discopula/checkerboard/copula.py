@@ -1464,3 +1464,311 @@ def bootstrap_sccram(contingency_table, direction="X1_X2", n_resamples=9999, con
     )
     
     return res
+
+def bootstrap_regression_U1_on_U2(contingency_table, u2, n_resamples=9999, confidence_level=0.95, method='BCa', random_state=None):
+    """Calculate bootstrap confidence intervals for regression E[U1|U2=u2].
+    
+    Parameters
+    ----------
+    contingency_table : numpy.ndarray
+        2D array representing contingency table of observed frequencies.
+    u2 : float
+        The U2 value at which to evaluate the regression (between 0 and 1).
+    n_resamples : int, default=9999
+        Number of bootstrap resamples to generate.
+    confidence_level : float, default=0.95
+        Confidence level for interval calculation (between 0 and 1).
+    method : {'percentile', 'basic', 'BCa'}, default='BCa'
+        Method to calculate bootstrap confidence intervals.
+    random_state : {None, int, numpy.random.Generator,
+                   numpy.random.RandomState}, optional
+        Random state for reproducibility.
+
+    Returns
+    -------
+    scipy.stats.BootstrapResult
+        Object containing:
+        - confidence_interval: namedtuple with low and high bounds
+        - bootstrap_distribution: array of regression values for resamples
+        - standard_error: bootstrap estimate of standard error
+
+    Examples
+    --------
+    >>> table = np.array([[10, 0], [0, 10]])
+    >>> result = bootstrap_regression_U1_on_U2(table, u2=0.5)
+    >>> print(f"95% CI: ({result.confidence_interval.low:.4f}, "
+    ...       f"{result.confidence_interval.high:.4f})")
+    """
+    # Input validation
+    if not 0 <= u2 <= 1:
+        raise ValueError("u2 must be between 0 and 1")
+        
+    # Convert contingency table to case form
+    cases = contingency_to_case_form(contingency_table)
+    
+    # Split into X1 and X2 variables
+    x1, x2 = cases[:, 0], cases[:, 1]
+    data = (x1, x2)
+    
+    def regression_stat(x1, x2, axis=0):
+        # Handle batched data
+        if x1.ndim > 1:
+            batch_size = x1.shape[0]
+            cases = np.stack([np.column_stack((x1[i], x2[i])) 
+                            for i in range(batch_size)])
+        else:
+            cases = np.column_stack((x1, x2))
+            
+        n_rows, n_cols = contingency_table.shape
+        resampled_table = case_form_to_contingency(cases, n_rows, n_cols)
+        
+        # Handle single vs batched tables
+        if resampled_table.ndim == 3:
+            results = []
+            for table in resampled_table:
+                copula = CheckerboardCopula.from_contingency_table(table)
+                results.append(copula.calculate_regression_U1_on_U2(u2))
+            return np.array(results)
+        else:
+            copula = CheckerboardCopula.from_contingency_table(resampled_table)
+            return copula.calculate_regression_U1_on_U2(u2)
+
+    # Perform bootstrap
+    res = bootstrap(
+        data,
+        regression_stat, 
+        n_resamples=n_resamples,
+        confidence_level=confidence_level,
+        method=method,
+        random_state=random_state,
+        paired=True,
+        vectorized=True
+    )
+    
+    return res
+
+
+def bootstrap_regression_U1_on_U2_vectorized(contingency_table, u2_values, n_resamples=9999, confidence_level=0.95, method='BCa', random_state=None):
+    """Calculate bootstrap confidence intervals for regression E[U1|U2=u2] for multiple u2 values.
+    
+    Parameters
+    ----------
+    contingency_table : numpy.ndarray
+        2D array representing contingency table of observed frequencies.
+    u2_values : array-like
+        Array of U2 values at which to evaluate the regression (between 0 and 1).
+    n_resamples : int, default=9999
+        Number of bootstrap resamples to generate.
+    confidence_level : float, default=0.95
+        Confidence level for interval calculation (between 0 and 1).
+    method : {'percentile', 'basic', 'BCa'}, default='BCa'
+        Method to calculate bootstrap confidence intervals.
+    random_state : {None, int, numpy.random.Generator,
+                   numpy.random.RandomState}, optional
+        Random state for reproducibility.
+
+    Returns
+    -------
+    list of scipy.stats.BootstrapResult
+        List of bootstrap results for each u2 value, each containing:
+        - confidence_interval: namedtuple with low and high bounds
+        - bootstrap_distribution: array of regression values for resamples
+        - standard_error: bootstrap estimate of standard error
+
+    Examples
+    --------
+    >>> table = np.array([[10, 0], [0, 10]])
+    >>> u2s = np.array([0.25, 0.5, 0.75])
+    >>> results = bootstrap_regression_U1_on_U2_vectorized(table, u2s)
+    >>> for u2, res in zip(u2s, results):
+    ...     print(f"u2={u2:.2f}: CI=({res.confidence_interval.low:.4f}, "
+    ...           f"{res.confidence_interval.high:.4f})")
+    """
+    # Input validation
+    u2_values = np.asarray(u2_values)
+    
+    # Perform bootstrap for each u2 value
+    results = []
+    for u2 in u2_values:
+        res = bootstrap_regression_U1_on_U2(
+            contingency_table, 
+            u2,
+            n_resamples=n_resamples,
+            confidence_level=confidence_level,
+            method=method,
+            random_state=random_state
+        )
+        results.append(res)
+        
+    return results
+
+def bootstrap_regression_U2_on_U1(contingency_table, u1, n_resamples=9999, confidence_level=0.95, method='BCa', random_state=None):
+    """Calculate bootstrap confidence intervals for regression E[U2|U1=u1].
+    
+    Parameters
+    ----------
+    contingency_table : numpy.ndarray
+        2D array representing contingency table of observed frequencies.
+    u1 : float
+        The U1 value at which to evaluate the regression (between 0 and 1).
+    n_resamples : int, default=9999
+        Number of bootstrap resamples to generate.
+    confidence_level : float, default=0.95
+        Confidence level for interval calculation (between 0 and 1).
+    method : {'percentile', 'basic', 'BCa'}, default='BCa'
+        Method to calculate bootstrap confidence intervals.
+    random_state : {None, int, numpy.random.Generator,
+                   numpy.random.RandomState}, optional
+        Random state for reproducibility.
+
+    Returns
+    -------
+    scipy.stats.BootstrapResult
+        Object containing:
+        - confidence_interval: namedtuple with low and high bounds
+        - bootstrap_distribution: array of regression values for resamples
+        - standard_error: bootstrap estimate of standard error
+
+    Examples
+    --------
+    >>> table = np.array([[10, 0], [0, 10]])
+    >>> result = bootstrap_regression_U2_on_U1(table, u1=0.5)
+    >>> print(f"95% CI: ({result.confidence_interval.low:.4f}, "
+    ...       f"{result.confidence_interval.high:.4f})")
+    """
+    # Input validation
+    if not 0 <= u1 <= 1:
+        raise ValueError("u1 must be between 0 and 1")
+        
+    # Convert contingency table to case form
+    cases = contingency_to_case_form(contingency_table)
+    
+    # Split into X1 and X2 variables
+    x1, x2 = cases[:, 0], cases[:, 1]
+    data = (x1, x2)
+    
+    def regression_stat(x1, x2, axis=0):
+        # Handle batched data
+        if x1.ndim > 1:
+            batch_size = x1.shape[0]
+            cases = np.stack([np.column_stack((x1[i], x2[i])) 
+                            for i in range(batch_size)])
+        else:
+            cases = np.column_stack((x1, x2))
+            
+        n_rows, n_cols = contingency_table.shape
+        resampled_table = case_form_to_contingency(cases, n_rows, n_cols)
+        
+        # Handle single vs batched tables
+        if resampled_table.ndim == 3:
+            results = []
+            for table in resampled_table:
+                copula = CheckerboardCopula.from_contingency_table(table)
+                results.append(copula.calculate_regression_U2_on_U1(u1))
+            return np.array(results)
+        else:
+            copula = CheckerboardCopula.from_contingency_table(resampled_table)
+            return copula.calculate_regression_U2_on_U1(u1)
+
+    # Perform bootstrap
+    res = bootstrap(
+        data,
+        regression_stat, 
+        n_resamples=n_resamples,
+        confidence_level=confidence_level,
+        method=method,
+        random_state=random_state,
+        paired=True,
+        vectorized=True
+    )
+    
+    return res
+
+def bootstrap_regression_U2_on_U1_vectorized(contingency_table, u1_values, n_resamples=9999, confidence_level=0.95, method='BCa', random_state=None):
+    """Calculate bootstrap confidence intervals for regression E[U2|U1=u1] for multiple u1 values.
+    
+    Parameters
+    ----------
+    contingency_table : numpy.ndarray
+        2D array representing contingency table of observed frequencies.
+    u1_values : array-like
+        Array of U1 values at which to evaluate the regression (between 0 and 1).
+    n_resamples : int, default=9999
+        Number of bootstrap resamples to generate.
+    confidence_level : float, default=0.95
+        Confidence level for interval calculation (between 0 and 1).
+    method : {'percentile', 'basic', 'BCa'}, default='BCa'
+        Method to calculate bootstrap confidence intervals.
+    random_state : {None, int, numpy.random.Generator,
+                   numpy.random.RandomState}, optional
+        Random state for reproducibility.
+
+    Returns
+    -------
+    list of scipy.stats.BootstrapResult
+        List of bootstrap results for each u1 value, each containing:
+        - confidence_interval: namedtuple with low and high bounds
+        - bootstrap_distribution: array of regression values for resamples
+        - standard_error: bootstrap estimate of standard error
+
+    Examples
+    --------
+    >>> table = np.array([[10, 0], [0, 10]])
+    >>> u1s = np.array([0.25, 0.5, 0.75])
+    >>> results = bootstrap_regression_U2_on_U1_vectorized(table, u1s)
+    >>> for u1, res in zip(u1s, results):
+    ...     print(f"u1={u1:.2f}: CI=({res.confidence_interval.low:.4f}, "
+    ...           f"{res.confidence_interval.high:.4f})")
+    """
+    # Input validation
+    u1_values = np.asarray(u1_values)
+    
+    # Perform bootstrap for each u1 value
+    results = []
+    for u1 in u1_values:
+        res = bootstrap_regression_U2_on_U1(
+            contingency_table, 
+            u1,
+            n_resamples=n_resamples,
+            confidence_level=confidence_level,
+            method=method,
+            random_state=random_state
+        )
+        results.append(res)
+        
+    return results
+
+# Temporarily commented out for testing
+"""
+if __name__ == "__main__":
+    import numpy as np
+
+    # Example contingency table
+    table = np.array([
+        [0, 0, 10],
+        [0, 20, 0],
+        [10, 0, 0],
+        [0, 20, 0],
+        [0, 0, 10]
+    ])
+
+    # Single u2 value
+    result = bootstrap_regression_U1_on_U2(table, u2=0.5)
+    print(f"CI for u2=0.5: ({result.confidence_interval.low:.4f}, {result.confidence_interval.high:.4f})")
+
+    # Multiple u2 values
+    u2_values = np.linspace(0, 1, 5)
+    results = bootstrap_regression_U1_on_U2_vectorized(table, u2_values)
+    for u2, res in zip(u2_values, results):
+        print(f"u2={u2:.2f}: CI=({res.confidence_interval.low:.4f}, {res.confidence_interval.high:.4f})")
+        
+    # Single u1 value
+    result = bootstrap_regression_U2_on_U1(table, u1=0.5)
+    print(f"CI for u1=0.5: ({result.confidence_interval.low:.4f}, {result.confidence_interval.high:.4f})")
+    
+    # Multiple u1 values
+    u1_values = np.linspace(0, 1, 5)
+    results = bootstrap_regression_U2_on_U1_vectorized(table, u1_values)
+    for u1, res in zip(u1_values, results):
+        print(f"u1={u1:.2f}: CI=({res.confidence_interval.low:.4f}, {res.confidence_interval.high:.4f})")
+"""

@@ -2,6 +2,8 @@ import numpy as np
 from discopula import CheckerboardCopula
 from discopula import contingency_to_case_form, case_form_to_contingency
 from discopula import bootstrap_ccram, bootstrap_sccram
+from discopula import bootstrap_regression_U1_on_U2, bootstrap_regression_U2_on_U1
+from discopula import bootstrap_regression_U1_on_U2_vectorized, bootstrap_regression_U2_on_U1_vectorized
 import pytest
 
 @pytest.fixture
@@ -55,8 +57,6 @@ def case_form_data():
         [4, 2], [4, 2], [4, 2], [4, 2], [4, 2],
         [4, 2], [4, 2], [4, 2], [4, 2], [4, 2]
     ])
-        
-        
 
 def test_from_contingency_table_valid(contingency_table):
     """
@@ -273,7 +273,7 @@ def test_means_and_variances(checkerboard_copula, expected_mean_S1, expected_var
     assert abs(variance_S2 - expected_variance_S2) < 0.01, f"Variance for S2 does not match: Expected {expected_variance_S2}, got {variance_S2}"
 
 @pytest.mark.parametrize("u1, expected_regression_value", [
-    (0, 12/16), # Inside [0, 1/8]
+    (0, 12/16), # Inside [0, 2/8]
     (1/16, 12/16),  # Inside [0, 2/8]
     (3/8, 6/16),  # Inside (2/8, 3/8]
     (4/8, 2/16),    # Inside (3/8, 5/8]
@@ -678,3 +678,180 @@ def test_bootstrap_sccram_values(contingency_table, direction, expected_value):
         )
         np.testing.assert_almost_equal(original_value, expected_value, decimal=5)
         assert result.confidence_interval.low <= original_value <= result.confidence_interval.high
+        
+def test_bootstrap_ccram_invalid_direction(contingency_table):
+    """
+    Test that an error is raised for an invalid direction in bootstrap_ccram.
+    """
+    with pytest.raises(ValueError):
+        bootstrap_ccram(
+            contingency_table,
+            direction="invalid",
+            n_resamples=9999,
+            confidence_level=0.95,
+            random_state=8990
+        )
+
+def test_bootstrap_sccram_invalid_direction(contingency_table):
+    """
+    Test that an error is raised for an invalid direction in bootstrap_sccram.
+    """
+    with pytest.raises(ValueError):
+        bootstrap_sccram(
+            contingency_table,
+            direction="invalid",
+            n_resamples=9999,
+            confidence_level=0.95,
+            random_state=8990
+        )
+
+def test_bootstrap_regression_U1_on_U2_basic(contingency_table):
+    """
+    Test basic functionality of bootstrap_regression_U1_on_U2.
+    """
+    result = bootstrap_regression_U1_on_U2(
+        contingency_table, 
+        u2=0.5,
+        n_resamples=999,  # Reduced for faster testing
+        random_state=8990
+    )
+    
+    assert hasattr(result, 'confidence_interval')
+    assert result.confidence_interval.low < result.confidence_interval.high
+    assert 0 <= result.confidence_interval.low <= 1
+    assert 0 <= result.confidence_interval.high <= 1
+    assert result.standard_error >= 0
+
+def test_bootstrap_regression_U2_on_U1_basic(contingency_table):
+    """
+    Test basic functionality of bootstrap_regression_U2_on_U1.
+    """
+    result = bootstrap_regression_U2_on_U1(
+        contingency_table,
+        u1=0.5,
+        n_resamples=999,
+        random_state=8990
+    )
+    
+    assert hasattr(result, 'confidence_interval')
+    assert result.confidence_interval.low < result.confidence_interval.high
+    assert 0 <= result.confidence_interval.low <= 1
+    assert 0 <= result.confidence_interval.high <= 1
+    assert result.standard_error >= 0
+
+def test_bootstrap_regression_U1_on_U2_vectorized(contingency_table):
+    """
+    Test vectorized version of bootstrap regression U1 on U2.
+    """
+    u2_values = np.array([0.25, 0.5, 0.75])
+    results = bootstrap_regression_U1_on_U2_vectorized(
+        contingency_table,
+        u2_values,
+        n_resamples=999,
+        random_state=8990
+    )
+    
+    assert len(results) == len(u2_values)
+    for result in results:
+        assert hasattr(result, 'confidence_interval')
+        assert result.confidence_interval.low < result.confidence_interval.high
+        assert 0 <= result.confidence_interval.low <= 1
+        assert 0 <= result.confidence_interval.high <= 1
+        assert result.standard_error >= 0
+
+def test_bootstrap_regression_U2_on_U1_vectorized(contingency_table):
+    """
+    Test vectorized version of bootstrap regression U2 on U1.
+    """
+    u1_values = np.array([0.25, 0.5, 0.75])
+    results = bootstrap_regression_U2_on_U1_vectorized(
+        contingency_table,
+        u1_values,
+        n_resamples=999,
+        random_state=8990
+    )
+    
+    assert len(results) == len(u1_values)
+    for result in results:
+        assert hasattr(result, 'confidence_interval')
+        assert result.confidence_interval.low < result.confidence_interval.high
+        assert 0 <= result.confidence_interval.low <= 1
+        assert 0 <= result.confidence_interval.high <= 1
+        assert result.standard_error >= 0
+
+@pytest.mark.parametrize("u_value", [-0.1, 1.1])
+def test_bootstrap_regression_U1_on_U2_invalid_input(contingency_table, u_value):
+    """
+    Test that invalid u2 values raise ValueError.
+    """
+    with pytest.raises(ValueError):
+        bootstrap_regression_U1_on_U2(contingency_table, u2=u_value)
+
+@pytest.mark.parametrize("u_value", [-0.1, 1.1])
+def test_bootstrap_regression_U2_on_U1_invalid_input(contingency_table, u_value):
+    """
+    Test that invalid u1 values raise ValueError.
+    """
+    with pytest.raises(ValueError):
+        bootstrap_regression_U2_on_U1(contingency_table, u1=u_value)
+
+def test_bootstrap_regression_different_methods(contingency_table):
+    """
+    Test different bootstrap confidence interval methods.
+    """
+    methods = ['percentile', 'basic', 'BCa']
+    for method in methods:
+        result = bootstrap_regression_U1_on_U2(
+            contingency_table,
+            u2=0.5,
+            n_resamples=999,
+            method=method,
+            random_state=8990
+        )
+        assert hasattr(result, 'confidence_interval')
+        
+        result = bootstrap_regression_U2_on_U1(
+            contingency_table,
+            u1=0.5,
+            n_resamples=999,
+            method=method,
+            random_state=8990
+        )
+        assert hasattr(result, 'confidence_interval')
+
+def test_bootstrap_regression_reproducibility(contingency_table):
+    """
+    Test that results are reproducible with same random_state.
+    """
+    result1 = bootstrap_regression_U1_on_U2(
+        contingency_table,
+        u2=0.5,
+        random_state=8990
+    )
+    result2 = bootstrap_regression_U1_on_U2(
+        contingency_table,
+        u2=0.5,
+        random_state=8990
+    )
+    
+    np.testing.assert_array_almost_equal(
+        result1.bootstrap_distribution,
+        result2.bootstrap_distribution
+    )
+
+@pytest.mark.parametrize("confidence_level", [0.90, 0.95, 0.99])
+def test_bootstrap_regression_confidence_levels(contingency_table, confidence_level):
+    """
+    Test different confidence levels.
+    """
+    result = bootstrap_regression_U1_on_U2(
+        contingency_table,
+        u2=0.5,
+        confidence_level=confidence_level,
+        n_resamples=999,
+        random_state=8990
+    )
+    
+    # Higher confidence level should give wider interval
+    interval_width = result.confidence_interval.high - result.confidence_interval.low
+    assert 0 < interval_width <= 1
