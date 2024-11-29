@@ -866,8 +866,6 @@ def bootstrap_predict_X2_from_X1_all_comb_summary(contingency_table, n_resamples
     
     return summary_table
 
-
-
 def permutation_test_sccram(contingency_table, direction="X1_X2", alternative='greater', n_resamples=9999, random_state=None):
     """Performs permutation test for H0: SCCRAM = 0 (independence between variables).
     

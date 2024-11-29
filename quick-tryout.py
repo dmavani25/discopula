@@ -1,5 +1,4 @@
 # Temporarily commented out for testing
-"""
 if __name__ == "__main__":
     import numpy as np
     from discopula.checkerboard.copula import CheckerboardCopula
@@ -56,25 +55,56 @@ if __name__ == "__main__":
     summary_table = bootstrap_predict_X2_from_X1_all_comb_summary(table, method='percentile', n_resamples=1000)
     print(summary_table)
     
-    # Test independence between variables
-    result = permutation_test_sccram(
+    # Test independence between variables - SCCRAM X1_X2
+    result_sccram_x1x2 = permutation_test_sccram(
         table,
         direction="X1_X2", 
+        n_resamples=9999
+    )
+    
+    print("\nSCCRAM Results (X1->X2):")
+    print(f"Observed SCCRAM: {result_sccram_x1x2.statistic:.4f}")
+    print(f"P-value: {result_sccram_x1x2.pvalue:.4f}")
+    print(f"Null distribution: {result_sccram_x1x2.null_distribution.min():.4f} - {result_sccram_x1x2.null_distribution.max():.4f}")
+    print(f"Relative Error: {1.0/np.sqrt(9999 * result_sccram_x1x2.pvalue):.4f}")
+
+    # Test independence between variables - SCCRAM X2_X1
+    result_sccram_x2x1 = permutation_test_sccram(
+        table,
+        direction="X2_X1", 
         n_resamples=9999
     )
 
-    print(f"Observed SCCRAM: {result.statistic:.4f}")
-    print(f"P-value: {result.pvalue:.4f}")
-    print(f"Null distribution: {result.null_distribution.min()} - {result.null_distribution.max()}")
+    print("\nSCCRAM Results (X2->X1):")
+    print(f"Observed SCCRAM: {result_sccram_x2x1.statistic:.4f}")
+    print(f"P-value: {result_sccram_x2x1.pvalue:.4f}")
+    print(f"Null distribution: {result_sccram_x2x1.null_distribution.min():.4f} - {result_sccram_x2x1.null_distribution.max():.4f}")
+    print(f"Relative Error: {1.0/np.sqrt(9999 * result_sccram_x2x1.pvalue):.4f}")
     
-    # Test independence between variables
-    result = permutation_test_ccram(
+    # Test independence between variables - CCRAM X1_X2
+    result_ccram_x1x2 = permutation_test_ccram(
         table,
-        direction="X1_X2", 
-        n_resamples=9999
+        direction="X1_X2",
+        alternative="two-sided",
+        n_resamples=1000000
     )
-    
-    print(f"Observed CCRAM: {result.statistic:.4f}")
-    print(f"P-value: {result.pvalue:.4f}")
-    print(f"Null distribution: {result.null_distribution.min()} - {result.null_distribution.max()}")
-"""
+
+    print("\nCCRAM Results (X1->X2):")
+    print(f"Observed CCRAM: {result_ccram_x1x2.statistic:.4f}")
+    print(f"P-value: {result_ccram_x1x2.pvalue:.4f}")
+    print(f"Null distribution: {result_ccram_x1x2.null_distribution.min():.4f} - {result_ccram_x1x2.null_distribution.max():.4f}")
+    print(f"Relative Error: {1.0/np.sqrt(1000000 * result_ccram_x1x2.pvalue):.4f}")
+
+    # Test independence between variables - CCRAM X2_X1
+    result_ccram_x2x1 = permutation_test_ccram(
+        table,
+        direction="X2_X1",
+        alternative="two-sided", 
+        n_resamples=1000000
+    )
+
+    print("\nCCRAM Results (X2->X1):")
+    print(f"Observed CCRAM: {result_ccram_x2x1.statistic:.4f}")
+    print(f"P-value: {result_ccram_x2x1.pvalue:.4f}")
+    print(f"Null distribution: {result_ccram_x2x1.null_distribution.min():.4f} - {result_ccram_x2x1.null_distribution.max():.4f}")
+    print(f"Relative Error: {1.0/np.sqrt(1000000 * result_ccram_x2x1.pvalue):.4f}")
