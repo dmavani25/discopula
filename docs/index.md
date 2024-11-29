@@ -64,7 +64,9 @@ Visit [Read the Docs](https://discopula.readthedocs.org) for the full documentat
 :maxdepth: 1
 getting-started.md
 contributing.md
-code.md
+copula-code.md
+statsim-code.md
+utils-code.md
 ```
 
 

@@ -1,37 +1,3 @@
-"""
-Checkerboard Copula Implementation
-================================
-
-This module provides implementation of the Checkerboard Copula for analyzing
-ordinal random vectors and calculating various association measures.
-
-Classes
--------
-CheckerboardCopula
-    Main class implementing checkerboard copula methods and calculations.
-
-Example
--------
->>> import numpy as np
->>> P = np.array([
-        [0, 0, 2/8],
-        [0, 1/8, 0],
-        [2/8, 0, 0],
-        [0, 1/8, 0],
-        [0, 0, 2/8]
-    ])  
->>> copula = CheckerboardCopula(P)
->>> sccram = copula.calculate_SCCRAM_X1_X2()
-
-References
-----------
-- [1] Genest, C. and J. Nešlehová (2007). A primer on copulas for count data.
-       Astin Bulletin 37(2), 475–515.
-- [2] Wei, Zheng & Kim, Daeyoung, 2021. "On exploratory analytic method for 
-        multi-way contingency tables with an ordinal response variable and 
-        categorical explanatory variables," Journal of Multivariate Analysis.
-"""
-
 import numpy as np
 
 class CheckerboardCopula:
@@ -61,6 +27,28 @@ class CheckerboardCopula:
         Checkerboard copula scores for X1.
     scores_X2 : numpy.ndarray
         Checkerboard copula scores for X2.
+            
+        
+    Example
+    -------
+    >>> import numpy as np
+    >>> P = np.array([
+            [0, 0, 2/8],
+            [0, 1/8, 0],
+            [2/8, 0, 0],
+            [0, 1/8, 0],
+            [0, 0, 2/8]
+        ])  
+    >>> copula = CheckerboardCopula(P)
+    >>> sccram = copula.calculate_SCCRAM_X1_X2()
+
+    References
+    ----------
+    - [1] Genest, C. and J. Nešlehová (2007). A primer on copulas for count data.
+        Astin Bulletin 37(2), 475–515.
+    - [2] Wei, Zheng & Kim, Daeyoung, 2021. "On exploratory analytic method for 
+            multi-way contingency tables with an ordinal response variable and 
+            categorical explanatory variables," Journal of Multivariate Analysis.
     """
     
     @classmethod
