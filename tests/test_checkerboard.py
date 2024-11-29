@@ -7,6 +7,7 @@ from discopula import bootstrap_regression_U1_on_U2_vectorized, bootstrap_regres
 from discopula import bootstrap_predict_X2_from_X1, bootstrap_predict_X1_from_X2
 from discopula import bootstrap_predict_X2_from_X1_vectorized, bootstrap_predict_X1_from_X2_vectorized
 from discopula import bootstrap_predict_X1_from_X2_all_comb_summary, bootstrap_predict_X2_from_X1_all_comb_summary
+from discopula import permutation_test_ccram, permutation_test_sccram
 import pytest
 
 @pytest.fixture
@@ -1240,3 +1241,223 @@ def test_summary_invalid_input():
             bootstrap_predict_X1_from_X2_all_comb_summary(table)
         with pytest.raises((ValueError, IndexError)):
             bootstrap_predict_X2_from_X1_all_comb_summary(table)
+            
+# Add these tests to test_checkerboard.py
+
+def test_permutation_test_sccram_basic(contingency_table):
+    """Test basic functionality of permutation_test_sccram."""
+    result = permutation_test_sccram(
+        contingency_table,
+        direction="X1_X2",
+        n_resamples=999,
+        random_state=8990
+    )
+    
+    assert hasattr(result, 'statistic')
+    assert hasattr(result, 'pvalue')
+    assert hasattr(result, 'null_distribution')
+    assert 0 <= result.pvalue <= 1
+    assert len(result.null_distribution) == 999
+
+def test_permutation_test_ccram_basic(contingency_table):
+    """Test basic functionality of permutation_test_ccram."""
+    result = permutation_test_ccram(
+        contingency_table,
+        direction="X1_X2",
+        n_resamples=999,
+        random_state=8990
+    )
+    
+    assert hasattr(result, 'statistic')
+    assert hasattr(result, 'pvalue')
+    assert hasattr(result, 'null_distribution')
+    assert 0 <= result.pvalue <= 1
+    assert len(result.null_distribution) == 999
+
+@pytest.mark.parametrize("direction", ["X1_X2", "X2_X1"])
+def test_permutation_test_directions(contingency_table, direction):
+    """Test both directions for permutation tests."""
+    result_sccram = permutation_test_sccram(
+        contingency_table,
+        direction=direction,
+        n_resamples=999,
+        random_state=8990
+    )
+    
+    result_ccram = permutation_test_ccram(
+        contingency_table,
+        direction=direction,
+        n_resamples=999,
+        random_state=8990
+    )
+    
+    assert 0 <= result_sccram.pvalue <= 1
+    assert 0 <= result_ccram.pvalue <= 1
+
+@pytest.mark.parametrize("alternative", ['greater', 'less', 'two-sided'])
+def test_permutation_test_alternatives(contingency_table, alternative):
+    """Test different alternative hypotheses."""
+    result_sccram = permutation_test_sccram(
+        contingency_table,
+        alternative=alternative,
+        n_resamples=999,
+        random_state=8990
+    )
+    
+    result_ccram = permutation_test_ccram(
+        contingency_table,
+        alternative=alternative,
+        n_resamples=999,
+        random_state=8990
+    )
+    
+    assert 0 <= result_sccram.pvalue <= 1
+    assert 0 <= result_ccram.pvalue <= 1
+
+def test_permutation_test_reproducibility():
+    """Test that results are reproducible with same random_state."""
+    table = np.array([
+        [10, 0],
+        [0, 10]
+    ])
+    
+    result1 = permutation_test_sccram(
+        table,
+        n_resamples=999,
+        random_state=8990
+    )
+    
+    result2 = permutation_test_sccram(
+        table,
+        n_resamples=999,
+        random_state=8990
+    )
+    
+    np.testing.assert_array_equal(
+        result1.null_distribution,
+        result2.null_distribution
+    )
+    assert result1.pvalue == result2.pvalue
+
+def test_permutation_test_independence():
+    """Test that independent variables give expected results."""
+    # Create independent table
+    independent_table = np.array([
+        [25, 25, 25],
+        [25, 25, 25]
+    ])
+    
+    result_sccram = permutation_test_sccram(
+        independent_table,
+        n_resamples=999,
+        random_state=8990
+    )
+    
+    result_ccram = permutation_test_ccram(
+        independent_table,
+        n_resamples=999,
+        random_state=8990
+    )
+    
+    # For independent variables, expect high p-values
+    assert result_sccram.pvalue > 0.05
+    assert result_ccram.pvalue > 0.05
+
+def test_permutation_test_perfect_dependence():
+    """Test that perfectly dependent variables give expected results."""
+    # Create perfectly dependent table
+    dependent_table = np.array([
+        [10, 0, 0],
+        [0, 10, 0],
+        [0, 0, 10]
+    ])
+    
+    result_sccram = permutation_test_sccram(
+        dependent_table,
+        n_resamples=999,
+        alternative='greater',
+        random_state=8990
+    )
+    
+    result_ccram = permutation_test_ccram(
+        dependent_table,
+        n_resamples=999,
+        alternative='greater',
+        random_state=8990
+    )
+    
+    # For perfectly dependent variables, expect very low p-values
+    assert result_sccram.pvalue < 0.05
+    assert result_ccram.pvalue < 0.05
+
+def test_permutation_test_invalid_inputs():
+    """Test that invalid inputs raise appropriate errors."""
+    valid_table = np.array([[10, 0], [0, 10]])
+    
+    # Test invalid direction
+    with pytest.raises(ValueError):
+        permutation_test_sccram(valid_table, direction="invalid")
+    with pytest.raises(ValueError):
+        permutation_test_ccram(valid_table, direction="invalid")
+        
+    # Test invalid alternative
+    with pytest.raises(ValueError):
+        permutation_test_sccram(valid_table, alternative="invalid")
+    with pytest.raises(ValueError):
+        permutation_test_ccram(valid_table, alternative="invalid")
+        
+    # Test invalid table shapes
+    invalid_tables = [
+        np.array([1, 2, 3]),  # 1D array
+        np.array([[-1, 0], [0, 1]]),  # Negative values
+        np.array([[0, 0], [0, 0]])  # All zeros
+    ]
+    
+    for table in invalid_tables:
+        with pytest.raises((ValueError, IndexError)):
+            permutation_test_sccram(table)
+        with pytest.raises((ValueError, IndexError)):
+            permutation_test_ccram(table)
+
+def test_permutation_test_small_resamples():
+    """Test behavior with small number of resamples."""
+    table = np.array([[10, 0], [0, 10]])
+    
+    result_sccram = permutation_test_sccram(
+        table,
+        n_resamples=10,
+        random_state=8990
+    )
+    
+    result_ccram = permutation_test_ccram(
+        table,
+        n_resamples=10,
+        random_state=8990
+    )
+    
+    assert len(result_sccram.null_distribution) == 10
+    assert len(result_ccram.null_distribution) == 10
+
+def test_permutation_test_different_table_sizes():
+    """Test permutation tests with different table sizes."""
+    tables = [
+        np.array([[10, 0], [0, 10]]),  # 2x2
+        np.array([[5, 5, 5], [5, 5, 5]]),  # 2x3
+        np.array([[10, 0, 0], [0, 10, 0], [0, 0, 10]])  # 3x3
+    ]
+    
+    for table in tables:
+        result_sccram = permutation_test_sccram(
+            table,
+            n_resamples=999,
+            random_state=8990
+        )
+        
+        result_ccram = permutation_test_ccram(
+            table,
+            n_resamples=999,
+            random_state=8990
+        )
+        
+        assert 0 <= result_sccram.pvalue <= 1
+        assert 0 <= result_ccram.pvalue <= 1

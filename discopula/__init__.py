@@ -10,6 +10,8 @@ from discopula.checkerboard.copula import bootstrap_regression_U1_on_U2_vectoriz
 from discopula.checkerboard.copula import bootstrap_predict_X2_from_X1, bootstrap_predict_X1_from_X2
 from discopula.checkerboard.copula import bootstrap_predict_X2_from_X1_vectorized, bootstrap_predict_X1_from_X2_vectorized
 from discopula.checkerboard.copula import bootstrap_predict_X1_from_X2_all_comb_summary, bootstrap_predict_X2_from_X1_all_comb_summary
+from discopula.checkerboard.copula import permutation_test_ccram, permutation_test_sccram
+
 __version__ = "0.0.5"
 __all__ = [
   "CheckerboardCopula", "contingency_to_case_form", "case_form_to_contingency",
@@ -18,4 +20,5 @@ __all__ = [
   "bootstrap_regression_U1_on_U2_vectorized", "bootstrap_regression_U2_on_U1_vectorized",
   "bootstrap_predict_X2_from_X1", "bootstrap_predict_X1_from_X2",
   "bootstrap_predict_X2_from_X1_vectorized", "bootstrap_predict_X1_from_X2_vectorized",
-  "bootstrap_predict_X1_from_X2_all_comb_summary", "bootstrap_predict_X2_from_X1_all_comb_summary"]
+  "bootstrap_predict_X1_from_X2_all_comb_summary", "bootstrap_predict_X2_from_X1_all_comb_summary",
+  "permutation_test_ccram", "permutation_test_sccram"]

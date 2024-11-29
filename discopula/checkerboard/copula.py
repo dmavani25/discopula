@@ -33,7 +33,7 @@ References
 """
 
 import numpy as np
-from scipy.stats import bootstrap
+from scipy.stats import bootstrap, permutation_test
 
 class CheckerboardCopula:
     """
@@ -1529,7 +1529,10 @@ def bootstrap_ccram(contingency_table, direction="X1_X2", n_resamples=9999, conf
             return np.array(results)
         else:
             copula = CheckerboardCopula.from_contingency_table(resampled_table)
-            return copula.calculate_CCRAM_X1_X2_vectorized()
+            if direction == "X1_X2":
+                return copula.calculate_CCRAM_X1_X2_vectorized()
+            else:
+                return copula.calculate_CCRAM_X2_X1_vectorized()
 
     # Perform bootstrap
     res = bootstrap(
@@ -1638,7 +1641,10 @@ def bootstrap_sccram(contingency_table, direction="X1_X2", n_resamples=9999, con
             return np.array(results)
         else:
             copula = CheckerboardCopula.from_contingency_table(resampled_table)
-            return copula.calculate_SCCRAM_X2_X1_vectorized()
+            if direction == "X1_X2":
+                return copula.calculate_SCCRAM_X1_X2_vectorized()
+            else:
+                return copula.calculate_SCCRAM_X2_X1_vectorized()
 
     # Perform bootstrap
     res = bootstrap(
@@ -2294,6 +2300,167 @@ def bootstrap_predict_X2_from_X1_all_comb_summary(contingency_table, n_resamples
     return summary_table
 
 
+
+def permutation_test_sccram(contingency_table, direction="X1_X2", alternative='greater', n_resamples=9999, random_state=None):
+    """Performs permutation test for H0: SCCRAM = 0 (independence between variables).
+    
+    Parameters
+    ----------
+    contingency_table : numpy.ndarray
+        2D array representing contingency table of observed frequencies
+    direction : {'X1_X2', 'X2_X1'}, default='X1_X2'
+        Direction of dependency to test
+    alternative : {'greater', 'less', 'two-sided'}, default='greater'
+        H1: SCCRAM > 0 (Default)
+    n_resamples : int, default=9999
+        Number of permutation resamples
+    random_state : {None, int, numpy.random.Generator}, optional
+        Random state for reproducibility
+        
+    Returns
+    -------
+    PermutationTestResult
+        Object containing:
+        - statistic: Observed SCCRAM value
+        - pvalue: p-value from permutation test
+        - null_distribution: SCCRAM values under null hypothesis
+    
+    Notes
+    -----
+    Tests independence between variables by permuting one variable while keeping
+    the other fixed. Uses case-form data representation for permutations.
+    """
+    # Convert table to case form
+    cases = contingency_to_case_form(contingency_table)
+    
+    # Split into X1 and X2 variables
+    x1, x2 = cases[:, 0], cases[:, 1]
+    data = (x1, x2)  # Keep X1 fixed, permute X2
+    
+    def sccram_stat(x1, x2, axis=0):
+        # Handle batched data 
+        if x1.ndim > 1:
+            batch_size = x1.shape[0]
+            cases = np.stack([np.column_stack((x1[i], x2[i])) 
+                            for i in range(batch_size)])
+        else:
+            cases = np.column_stack((x1, x2))
+            
+        n_rows, n_cols = contingency_table.shape
+        resampled_table = case_form_to_contingency(cases, n_rows, n_cols)
+        
+        # Handle single vs batched tables
+        if resampled_table.ndim == 3:
+            results = []
+            for table in resampled_table:
+                copula = CheckerboardCopula.from_contingency_table(table)
+                if direction == "X1_X2":
+                    results.append(copula.calculate_SCCRAM_X1_X2_vectorized())
+                elif direction == "X2_X1":
+                    results.append(copula.calculate_SCCRAM_X2_X1_vectorized())
+                else:
+                    raise ValueError("Invalid direction. Use 'X1_X2' or 'X2_X1'")
+            return np.array(results)
+        else:
+            copula = CheckerboardCopula.from_contingency_table(resampled_table)
+            if direction == "X1_X2":
+                return copula.calculate_SCCRAM_X1_X2_vectorized()
+            else:
+                return copula.calculate_SCCRAM_X2_X1_vectorized()
+
+    # Perform permutation test
+    res = permutation_test(
+        data,
+        sccram_stat,
+        permutation_type='pairings', # Permute pairings between variables
+        n_resamples=n_resamples,
+        alternative=alternative,
+        random_state=random_state,
+        vectorized=True
+    )
+    
+    return res
+
+def permutation_test_ccram(contingency_table, direction="X1_X2", alternative='greater', n_resamples=9999, random_state=None):
+    """Performs permutation test for H0: CCRAM = 0 (independence between variables).
+    
+    Parameters
+    ----------
+    contingency_table : numpy.ndarray
+        2D array representing contingency table of observed frequencies
+    direction : {'X1_X2', 'X2_X1'}, default='X1_X2'
+        Direction of dependency to test
+    alternative : {'greater', 'less', 'two-sided'}, default='greater'
+        H1: CCRAM > 0 (Default)
+    n_resamples : int, default=9999
+        Number of permutation resamples
+    random_state : {None, int, numpy.random.Generator}, optional
+        Random state for reproducibility
+        
+    Returns
+    -------
+    PermutationTestResult
+        Object containing:
+        - statistic: Observed CCRAM value
+        - pvalue: p-value from permutation test
+        - null_distribution: CCRAM values under null hypothesis
+    
+    Notes
+    -----
+    Tests independence between variables by permuting one variable while keeping
+    the other fixed. Uses case-form data representation for permutations.
+    """
+    # Convert table to case form
+    cases = contingency_to_case_form(contingency_table)
+    
+    # Split into X1 and X2 variables
+    x1, x2 = cases[:, 0], cases[:, 1]
+    data = (x1, x2)  # Keep X1 fixed, permute X2
+    
+    def ccram_stat(x1, x2, axis=0):
+        # Handle batched data 
+        if x1.ndim > 1:
+            batch_size = x1.shape[0]
+            cases = np.stack([np.column_stack((x1[i], x2[i])) 
+                            for i in range(batch_size)])
+        else:
+            cases = np.column_stack((x1, x2))
+            
+        n_rows, n_cols = contingency_table.shape
+        resampled_table = case_form_to_contingency(cases, n_rows, n_cols)
+        
+        # Handle single vs batched tables
+        if resampled_table.ndim == 3:
+            results = []
+            for table in resampled_table:
+                copula = CheckerboardCopula.from_contingency_table(table)
+                if direction == "X1_X2":
+                    results.append(copula.calculate_CCRAM_X1_X2_vectorized())
+                elif direction == "X2_X1":
+                    results.append(copula.calculate_CCRAM_X2_X1_vectorized())
+                else:
+                    raise ValueError("Invalid direction. Use 'X1_X2' or 'X2_X1'")
+            return np.array(results)
+        else:
+            copula = CheckerboardCopula.from_contingency_table(resampled_table)
+            if direction == "X1_X2":
+                return copula.calculate_CCRAM_X1_X2_vectorized()
+            else:
+                return copula.calculate_CCRAM_X2_X1_vectorized()
+
+    # Perform permutation test
+    res = permutation_test(
+        data,
+        ccram_stat,
+        permutation_type='pairings', # Permute pairings between variables
+        n_resamples=n_resamples,
+        alternative=alternative,
+        random_state=random_state,
+        vectorized=True
+    )
+    
+    return res
+
 # Temporarily commented out for testing
 """
 if __name__ == "__main__":
@@ -2323,7 +2490,7 @@ if __name__ == "__main__":
         print(f"Bootstrap distribution: {res.bootstrap_distribution.min()} - {res.bootstrap_distribution.max()}")
         
     # Summary table for all X2 categories
-    summary_table = bootstrap_predict_X1_from_X2_all_comb_summary(table, method='bca', n_resamples=1000)
+    summary_table = bootstrap_predict_X1_from_X2_all_comb_summary(table, method='percentile', n_resamples=1000)
     print(summary_table)
     
     # Single prediction with confidence interval
@@ -2338,6 +2505,28 @@ if __name__ == "__main__":
         print(f"Bootstrap distribution: {res.bootstrap_distribution.min()} - {res.bootstrap_distribution.max()}")
         
     # Summary table for all X1 categories
-    summary_table = bootstrap_predict_X2_from_X1_all_comb_summary(table, method='bca', n_resamples=1000)
+    summary_table = bootstrap_predict_X2_from_X1_all_comb_summary(table, method='percentile', n_resamples=1000)
     print(summary_table)
+    
+    # Test independence between variables
+    result = permutation_test_sccram(
+        table,
+        direction="X1_X2", 
+        n_resamples=9999
+    )
+
+    print(f"Observed SCCRAM: {result.statistic:.4f}")
+    print(f"P-value: {result.pvalue:.4f}")
+    print(f"Null distribution: {result.null_distribution.min()} - {result.null_distribution.max()}")
+    
+    # Test independence between variables
+    result = permutation_test_ccram(
+        table,
+        direction="X1_X2", 
+        n_resamples=9999
+    )
+    
+    print(f"Observed CCRAM: {result.statistic:.4f}")
+    print(f"P-value: {result.pvalue:.4f}")
+    print(f"Null distribution: {result.null_distribution.min()} - {result.null_distribution.max()}")
 """
