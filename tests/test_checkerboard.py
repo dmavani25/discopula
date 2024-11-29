@@ -6,6 +6,7 @@ from discopula import bootstrap_regression_U1_on_U2, bootstrap_regression_U2_on_
 from discopula import bootstrap_regression_U1_on_U2_vectorized, bootstrap_regression_U2_on_U1_vectorized
 from discopula import bootstrap_predict_X2_from_X1, bootstrap_predict_X1_from_X2
 from discopula import bootstrap_predict_X2_from_X1_vectorized, bootstrap_predict_X1_from_X2_vectorized
+from discopula import bootstrap_predict_X1_from_X2_all_comb_summary, bootstrap_predict_X2_from_X1_all_comb_summary
 import pytest
 
 @pytest.fixture
@@ -1125,3 +1126,117 @@ def test_bootstrap_predict_consistent_with_direct(contingency_table):
     )
     # Most common bootstrap prediction should match direct prediction
     assert direct_pred in boot_result.bootstrap_distribution
+    
+def test_bootstrap_predict_X1_from_X2_all_comb_summary(contingency_table):
+    """Test summary table for predicting X1 from all X2 categories."""
+    summary_table = bootstrap_predict_X1_from_X2_all_comb_summary(
+        contingency_table,
+        n_resamples=999,
+        method='percentile',
+        random_state=8990
+    )
+    
+    n_rows, n_cols = contingency_table.shape
+    
+    # Test shape
+    assert summary_table.shape == (n_rows, n_cols)
+    
+    # Test that columns sum to 100%
+    np.testing.assert_array_almost_equal(
+        summary_table.sum(axis=0),
+        np.ones(n_cols) * 100,
+        decimal=5
+    )
+    
+    # Test that values are between 0 and 100
+    assert np.all(summary_table >= 0)
+    assert np.all(summary_table <= 100)
+
+def test_bootstrap_predict_X2_from_X1_all_comb_summary(contingency_table):
+    """Test summary table for predicting X2 from all X1 categories."""
+    summary_table = bootstrap_predict_X2_from_X1_all_comb_summary(
+        contingency_table,
+        n_resamples=999,
+        method='percentile',
+        random_state=8990
+    )
+    
+    n_rows, n_cols = contingency_table.shape
+    
+    # Test shape
+    assert summary_table.shape == (n_rows, n_cols)
+    
+    # Test that rows sum to 100%
+    np.testing.assert_array_almost_equal(
+        summary_table.sum(axis=1),
+        np.ones(n_rows) * 100,
+        decimal=5
+    )
+    
+    # Test that values are between 0 and 100
+    assert np.all(summary_table >= 0)
+    assert np.all(summary_table <= 100)
+
+def test_summary_reproducibility():
+    """Test that summary results are reproducible with same random_state."""
+    table = np.array([
+        [0, 0, 10],
+        [0, 20, 0],
+        [10, 0, 0],
+        [0, 20, 0],
+        [0, 0, 10]
+    ])
+    
+    result1 = bootstrap_predict_X1_from_X2_all_comb_summary(
+        table,
+        n_resamples=999,
+        random_state=8990
+    )
+    
+    result2 = bootstrap_predict_X1_from_X2_all_comb_summary(
+        table,
+        n_resamples=999,
+        random_state=8990
+    )
+    
+    np.testing.assert_array_equal(result1, result2)
+    
+def test_summary_different_tables():
+    """Test summary functions with different contingency tables."""
+    tables = [
+        np.array([[10, 0], [0, 10]]),  # Perfect diagonal
+        np.array([[5, 5], [5, 5]]),    # Uniform
+        np.array([[10, 0, 0], [0, 10, 0], [0, 0, 10]])  # 3x3 diagonal
+    ]
+    
+    for table in tables:
+        summary1 = bootstrap_predict_X1_from_X2_all_comb_summary(table)
+        summary2 = bootstrap_predict_X2_from_X1_all_comb_summary(table)
+        
+        # Check shapes
+        assert summary1.shape == table.shape
+        assert summary2.shape == table.shape
+        
+        # Check sums
+        np.testing.assert_array_almost_equal(
+            summary1.sum(axis=0),
+            np.ones(table.shape[1]) * 100
+        )
+        np.testing.assert_array_almost_equal(
+            summary2.sum(axis=1),
+            np.ones(table.shape[0]) * 100
+        )
+
+def test_summary_invalid_input():
+    """Test that invalid inputs raise appropriate errors."""
+    invalid_tables = [
+        np.array([1, 2, 3]),  # 1D array
+        np.array([[-1, 0], [0, 1]]),  # Negative values
+        np.array([[0, 0], [0, 0]])  # All zeros
+    ]
+    
+    for table in invalid_tables:
+        with pytest.raises((ValueError, IndexError)):
+            bootstrap_predict_X1_from_X2_all_comb_summary(table)
+        with pytest.raises((ValueError, IndexError)):
+            bootstrap_predict_X2_from_X1_all_comb_summary(table)

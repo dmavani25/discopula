@@ -2191,6 +2191,109 @@ def bootstrap_predict_X1_from_X2_vectorized(contingency_table, x2_categories, n_
         
     return results
 
+def bootstrap_predict_X1_from_X2_all_comb_summary(contingency_table, n_resamples=9999, confidence_level=0.95, method='BCa', random_state=None):
+    """Calculate bootstrap summary classification table for predicting X1 from all X2 categories.
+    
+    Parameters
+    ----------
+    contingency_table : numpy.ndarray
+        2D array representing contingency table of observed frequencies.
+    n_resamples : int, default=9999
+        Number of bootstrap resamples to generate.
+    confidence_level : float, default=0.95
+        Confidence level for interval calculation (between 0 and 1).
+    method : {'percentile', 'basic', 'BCa'}, default='BCa'
+        Method to calculate bootstrap confidence intervals.
+    random_state : {None, int, numpy.random.Generator,
+                   numpy.random.RandomState}, optional
+        Random state for reproducibility.
+
+    Returns
+    -------
+    summary : numpy.ndarray
+        2D array showing the proportion of X1=j from CCR at each combination of categories of X2
+    """
+    n_rows, n_cols = contingency_table.shape
+    
+    # Get bootstrap predictions for each X2 category
+    results = bootstrap_predict_X1_from_X2_vectorized(
+        contingency_table, 
+        np.arange(n_cols),
+        n_resamples=n_resamples,
+        confidence_level=confidence_level,
+        method=method,
+        random_state=random_state
+    )
+    
+    # Initialize summary table
+    summary_table = np.zeros((n_rows, n_cols))
+    
+    # For each X2 category
+    for x2_cat in range(n_cols):
+        bootstrap_preds = results[x2_cat].bootstrap_distribution
+        
+        # Count occurrences of each possible X1 category
+        unique_vals, counts = np.unique(bootstrap_preds, return_counts=True)
+        total_samples = len(bootstrap_preds)
+        
+        # Calculate percentage for each prediction category
+        for val, count in zip(unique_vals, counts):
+            summary_table[int(val), x2_cat] = (count / total_samples) * 100
+    
+    return summary_table
+
+def bootstrap_predict_X2_from_X1_all_comb_summary(contingency_table, n_resamples=9999, confidence_level=0.95, method='BCa', random_state=None):
+    """Calculate bootstrap summary classification table for predicting X2 from all X1 categories.
+    
+    Parameters
+    ----------
+    contingency_table : numpy.ndarray
+        2D array representing contingency table of observed frequencies.
+    n_resamples : int, default=9999
+        Number of bootstrap resamples to generate.
+    confidence_level : float, default=0.95
+        Confidence level for interval calculation (between 0 and 1).
+    method : {'percentile', 'basic', 'BCa'}, default='BCa'
+        Method to calculate bootstrap confidence intervals.
+    random_state : {None, int, numpy.random.Generator,
+                   numpy.random.RandomState}, optional
+        Random state for reproducibility.
+
+    Returns
+    -------
+    summary : numpy.ndarray
+        2D array showing the proportion of X2=j from CCR at each combination of categories of X1
+    """
+    n_rows, n_cols = contingency_table.shape
+    
+    # Get bootstrap predictions for each X1 category
+    results = bootstrap_predict_X2_from_X1_vectorized(
+        contingency_table, 
+        np.arange(n_rows),
+        n_resamples=n_resamples,
+        confidence_level=confidence_level,
+        method=method,
+        random_state=random_state
+    )
+    
+    # Initialize summary table
+    summary_table = np.zeros((n_rows, n_cols))
+    
+    # For each X1 category
+    for x1_cat in range(n_rows):
+        bootstrap_preds = results[x1_cat].bootstrap_distribution
+        
+        # Count occurrences of each possible X2 category
+        unique_vals, counts = np.unique(bootstrap_preds, return_counts=True)
+        total_samples = len(bootstrap_preds)
+        
+        # Calculate percentage for each prediction category
+        for val, count in zip(unique_vals, counts):
+            summary_table[x1_cat, int(val)] = (count / total_samples) * 100
+    
+    return summary_table
+
+
 # Temporarily commented out for testing
 """
 if __name__ == "__main__":
@@ -2209,17 +2312,32 @@ if __name__ == "__main__":
     copula = CheckerboardCopula.from_contingency_table(table)
 
     # Single prediction with confidence interval
-    x1_category = 4
-    result = bootstrap_predict_X2_from_X1(table, x1_category, method='percentile')
-    print(f"Predicted X2 category: {result.confidence_interval.low:.1f} - {result.confidence_interval.high:.1f}")
-    print(f"Standard error: {result.standard_error:.4f}")
-    print(f"Bootstrap distribution: {result.bootstrap_distribution}")
+    x2_category = 0
+    result = bootstrap_predict_X1_from_X2(table, x2_category, method='percentile')
+    print(f"Bootstrap distribution: {result.bootstrap_distribution.min()} - {result.bootstrap_distribution.max()}")
 
+    # Multiple predictions with confidence intervals
+    x2_categories = np.array([0, 1, 2])
+    results = bootstrap_predict_X1_from_X2_vectorized(table, x2_categories, method='percentile')
+    for x2, res in zip(x2_categories, results):
+        print(f"Bootstrap distribution: {res.bootstrap_distribution.min()} - {res.bootstrap_distribution.max()}")
+        
+    # Summary table for all X2 categories
+    summary_table = bootstrap_predict_X1_from_X2_all_comb_summary(table, method='bca', n_resamples=1000)
+    print(summary_table)
+    
+    # Single prediction with confidence interval
+    x1_category = 0
+    result = bootstrap_predict_X2_from_X1(table, x1_category, method='percentile')
+    print(f"Bootstrap distribution: {result.bootstrap_distribution.min()} - {result.bootstrap_distribution.max()}")
+    
     # Multiple predictions with confidence intervals
     x1_categories = np.array([0, 1, 2, 3, 4])
     results = bootstrap_predict_X2_from_X1_vectorized(table, x1_categories, method='percentile')
     for x1, res in zip(x1_categories, results):
-        print(f"X1={x1}: Predicted X2 category {res.confidence_interval.low:.1f} - {res.confidence_interval.high:.1f}")
-        print(f"Standard error: {res.standard_error:.4f}")
-        print(f"Bootstrap distribution: {res.bootstrap_distribution}")
+        print(f"Bootstrap distribution: {res.bootstrap_distribution.min()} - {res.bootstrap_distribution.max()}")
+        
+    # Summary table for all X1 categories
+    summary_table = bootstrap_predict_X2_from_X1_all_comb_summary(table, method='bca', n_resamples=1000)
+    print(summary_table)
 """
