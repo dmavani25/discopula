@@ -21,9 +21,6 @@ def bootstrap_example():
         [0, 20, 0],
         [0, 0, 10]
     ])
-
-    # Copula object from contingency table
-    copula = CheckerboardCopula.from_contingency_table(contingency_table)
     
     # Bootstrap SCCRAM X1 -> X2
     # Note: Not using "BCa" in this case since it returns NaN for confidence intervals
