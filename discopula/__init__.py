@@ -14,7 +14,7 @@ from discopula.checkerboard.statsim import (
         permutation_test_ccram, permutation_test_sccram
     )
 
-__version__ = "0.0.5"
+__version__ = "0.1.0"
 __all__ = [
   "CheckerboardCopula", "contingency_to_case_form", "case_form_to_contingency",
   "bootstrap_ccram", "bootstrap_sccram",

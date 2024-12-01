@@ -2,7 +2,7 @@
 
 > Discrete checkerboard copula modeling and implementation of new scoring methods pertaining to ordinal and categorical discrete data.
 
-[![PyPI version](https://badge.fury.io/py/discopula.svg)](https://badge.fury.io/py/discopula)
+[![PyPI version](https://badge.fury.io/py/discopula.png)](https://badge.fury.io/py/discopula)
 [![build](https://github.com/dmavani25/discopula/actions/workflows/test.yaml/badge.svg)](https://github.com/dmavani25/discopula/actions/workflows/test.yaml)
 [![Documentation Status](https://readthedocs.org/projects/discopula/badge/?version=latest)](https://discopula.readthedocs.io/en/latest/?badge=latest)
 [![Coverage Status](https://coveralls.io/repos/github/dmavani25/discopula/badge.png?branch=master)](https://coveralls.io/github/dmavani25/discopula?branch=master)
@@ -47,7 +47,11 @@ $ deactivate
 
 Visit [Read the Docs](https://discopula.readthedocs.org) for the full documentation, including overviews and several examples.
 
-## Quick Start Example
+## Examples
+
+For a quick overview, refer to the quick-start example below. More detailed examples organized by functionality can be found in our [GitHub repository's examples folder](https://github.com/dmavani25/discopula/tree/master/examples).
+
+### Quick-Start Example
 
 ```python
 import numpy as np
@@ -80,7 +84,7 @@ print(f"CCRAM X1->X2: {copula.calculate_CCRAM_X1_X2():.6f}")
 print(f"SCCRAM X1->X2: {copula.calculate_SCCRAM_X1_X2():.6f}")
 ```
 
-#### Example Output: 
+### Quick-Start Example Output 
 
 ```text
 Shape of probability matrix P: (5, 3)
@@ -98,9 +102,10 @@ SCCRAM X1->X2: 1.000000
 - Calculation of marginal distributions and CDFs
 - Computation of conditional expectations (regression)
 - Implementation of Checkerboard Copula Regression Association Measure (CCRAM)
-- Standardized CCRAM calculations
+- Standardized CCRAM (SCCRAM) calculations
 - Vectorized implementations for improved performance
-- Bootstrap functionality for CCRAM, SCCRAM, and Checkerboard Copula Regression
+- Bootstrap functionality for CCRAM, SCCRAM, Checkerboard Copula Regression (CCR), and Prediction based on CCR
+- Permutation testing functionality for CCRAM & SCCRAM
 - Rigorous Edge-case Handling & Unit Testing with Pytest 
 
 ## Contributing

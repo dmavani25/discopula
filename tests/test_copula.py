@@ -539,9 +539,6 @@ def test_get_predicted_category(checkerboard_copula):
         (1.0, np.array([0, 0.25, 0.5, 1.0]), 2),  # At upper bound
     ]
     
-    print(checkerboard_copula.marginal_cdf_X1)
-    print(checkerboard_copula.marginal_cdf_X2)
-    
     for regression_value, cdf, expected in test_cases:
         predicted = checkerboard_copula.get_predicted_category(regression_value, cdf)
         assert predicted == expected, f"Failed for regression_value={regression_value}"
