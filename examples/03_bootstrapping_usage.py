@@ -1,5 +1,4 @@
 import numpy as np
-from discopula import CheckerboardCopula
 from discopula import (
     bootstrap_ccram, bootstrap_sccram,
     bootstrap_regression_U2_on_U1, bootstrap_regression_U1_on_U2,
