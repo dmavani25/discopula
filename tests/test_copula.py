@@ -2,7 +2,6 @@ import numpy as np
 import pytest
 from discopula import CheckerboardCopula
 
-
 @pytest.fixture
 def checkerboard_copula():
     """

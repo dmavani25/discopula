@@ -13,8 +13,9 @@ from discopula.checkerboard.statsim import (
         bootstrap_predict_X1_from_X2_all_comb_summary, bootstrap_predict_X2_from_X1_all_comb_summary,
         permutation_test_ccram, permutation_test_sccram
     )
+from discopula.checkerboard.gencopula import GenericCheckerboardCopula
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 __all__ = [
   "CheckerboardCopula", "contingency_to_case_form", "case_form_to_contingency",
   "bootstrap_ccram", "bootstrap_sccram",
@@ -23,4 +24,5 @@ __all__ = [
   "bootstrap_predict_X2_from_X1", "bootstrap_predict_X1_from_X2",
   "bootstrap_predict_X2_from_X1_vectorized", "bootstrap_predict_X1_from_X2_vectorized",
   "bootstrap_predict_X1_from_X2_all_comb_summary", "bootstrap_predict_X2_from_X1_all_comb_summary",
-  "permutation_test_ccram", "permutation_test_sccram"]
+  "permutation_test_ccram", "permutation_test_sccram",
+  "GenericCheckerboardCopula"]
