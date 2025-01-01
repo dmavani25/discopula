@@ -37,7 +37,7 @@ def test_bootstrap_ccram_scaled(contingency_table):
         from_axis=0,
         to_axis=1,
         is_scaled=True,
-        n_resamples=999,
+        n_resamples=9999,
         random_state=8990
     )
     

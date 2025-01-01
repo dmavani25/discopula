@@ -18,15 +18,31 @@ class CustomBootstrapResult:
 
     def plot_distribution(self, title=None):
         """Plot bootstrap distribution with observed value."""
-        fig, ax = plt.subplots(figsize=(10, 6))
-        ax.hist(self.bootstrap_distribution, bins=50, density=True, alpha=0.7)
-        ax.axvline(self.observed_value, color='red', linestyle='--', label=f'Observed {self.metric_name}')
-        ax.set_xlabel(f'{self.metric_name} Value')
-        ax.set_ylabel('Density')
-        ax.set_title(title or 'Bootstrap Distribution')
-        ax.legend()
-        self.histogram_fig = fig
-        return fig
+        try:
+            fig, ax = plt.subplots(figsize=(10, 6))
+            
+            # Calculate data range
+            data_range = np.ptp(self.bootstrap_distribution)
+            if data_range == 0:
+                # If all values are identical, use a single bin
+                bins = 1
+            else:
+                # Try to use 50 bins, fall back to fewer if needed
+                bins = min(50, max(1, int(np.sqrt(len(self.bootstrap_distribution)))))
+            
+            ax.hist(self.bootstrap_distribution, bins=bins, density=True, alpha=0.7)
+            ax.axvline(self.observed_value, color='red', linestyle='--', 
+                    label=f'Observed {self.metric_name}')
+            ax.set_xlabel(f'{self.metric_name} Value')
+            ax.set_ylabel('Density')
+            ax.set_title(title or 'Bootstrap Distribution')
+            ax.legend()
+            self.histogram_fig = fig
+            return fig
+        except Exception as e:
+            print(f"Warning: Could not create bootstrap distribution plot: {str(e)}")
+            self.histogram_fig = None
+            return None
 
 def bootstrap_ccram(contingency_table: np.ndarray,
                    from_axis: int,
@@ -129,16 +145,31 @@ class CustomPermutationResult:
 
     def plot_distribution(self, title=None):
         """Plot null distribution with observed value."""
-        fig, ax = plt.subplots(figsize=(10, 6))
-        ax.hist(self.null_distribution, bins=50, density=True, alpha=0.7)
-        ax.axvline(self.observed_value, color='red', linestyle='--', 
-                  label=f'Observed {self.metric_name}')
-        ax.set_xlabel(f'{self.metric_name} Value')
-        ax.set_ylabel('Density')
-        ax.set_title(title or 'Null Distribution')
-        ax.legend()
-        self.histogram_fig = fig
-        return fig
+        try:
+            fig, ax = plt.subplots(figsize=(10, 6))
+            
+            # Calculate data range
+            data_range = np.ptp(self.null_distribution)
+            if data_range == 0:
+                # If all values are identical, use a single bin
+                bins = 1
+            else:
+                # Try to use 50 bins, fall back to fewer if needed
+                bins = min(50, max(1, int(np.sqrt(len(self.null_distribution)))))
+                
+            ax.hist(self.null_distribution, bins=bins, density=True, alpha=0.7)
+            ax.axvline(self.observed_value, color='red', linestyle='--', 
+                    label=f'Observed {self.metric_name}')
+            ax.set_xlabel(f'{self.metric_name} Value')
+            ax.set_ylabel('Density')
+            ax.set_title(title or 'Null Distribution')
+            ax.legend()
+            self.histogram_fig = fig
+            return fig
+        except Exception as e:
+            print(f"Warning: Could not create null distribution plot: {str(e)}")
+            self.histogram_fig = None
+            return None
 
 def permutation_test_ccram(contingency_table: np.ndarray,
                           from_axis: int = 0,
