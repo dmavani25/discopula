@@ -118,8 +118,8 @@ class GenericCheckerboardCopula:
         scale = 1 / np.min(self.P[self.P > 0]) if np.any(self.P > 0) else 1
         return np.round(self.P * scale).astype(int)
     
-    def calculate_CCRAM(self, from_axis, to_axis):
-        """Calculate Checkerboard Copula Regression Association Measure.
+    def calculate_CCRAM(self, from_axis, to_axis, is_scaled=False):
+        """Calculate (Standardized) Checkerboard Copula Regression Association Measure.
         
         Parameters
         ----------
@@ -127,11 +127,13 @@ class GenericCheckerboardCopula:
             Source axis for directional association
         to_axis : int
             Target axis for directional association
+        is_scaled : bool, optional
+            Whether to return standardized measure (default: False)
             
         Returns
         -------
         float
-            CCRAM value in [0,1] indicating strength of association
+            (S)CCRAM value in [0,1] indicating strength of association
         """
         weighted_expectation = 0.0
         for p_x, u in zip(self.marginal_pdfs[from_axis], 
@@ -142,10 +144,20 @@ class GenericCheckerboardCopula:
                 given_value=u
             )
             weighted_expectation += p_x * (regression_value - 0.5) ** 2
-        return 12 * weighted_expectation
+        
+        ccram = 12 * weighted_expectation
+        
+        if not is_scaled:
+            return ccram
+            
+        # Calculate scaled version
+        sigma_sq_S = self._calculate_sigma_sq_S(to_axis)
+        if sigma_sq_S < 1e-10:
+            return 1.0 if ccram >= 1e-10 else 0.0
+        return ccram / (12 * sigma_sq_S)
 
-    def calculate_CCRAM_vectorized(self, from_axis, to_axis):
-        """Calculate vectorized CCRAM between axes.
+    def calculate_CCRAM_vectorized(self, from_axis, to_axis, is_scaled=False):
+        """Calculate (Standardized) CCRAM using vectorized operations.
         
         Parameters
         ----------
@@ -153,11 +165,13 @@ class GenericCheckerboardCopula:
             Source axis for directional association
         to_axis : int
             Target axis for directional association
+        is_scaled : bool, optional
+            Whether to return standardized measure (default: False)
             
         Returns
         -------
         float
-            CCRAM value in [0,1] indicating strength of association
+            (S)CCRAM value in [0,1] indicating strength of association
         """
         regression_values = self._calculate_regression_batched(
             target_axis=to_axis,
@@ -167,106 +181,17 @@ class GenericCheckerboardCopula:
         weighted_expectation = np.sum(
             self.marginal_pdfs[from_axis] * (regression_values - 0.5) ** 2
         )
-        return 12 * weighted_expectation
-    
-    def calculate_sigma_sq_S(self, axis):
-        """Calculate variance of score S for given axis.
+        ccram = 12 * weighted_expectation
         
-        Parameters
-        ----------
-        axis : int
-            Axis for which to calculate score variance
+        if not is_scaled:
+            return ccram
             
-        Returns
-        -------
-        float
-            Variance of score S for given axis
-        """
-        # Get consecutive CDF values
-        u_prev = self.marginal_cdfs[axis][:-1]
-        u_next = self.marginal_cdfs[axis][1:]
-        
-        # Calculate each term in the sum
-        terms = []
-        for i in range(len(self.marginal_pdfs[axis])):
-            if i < len(u_prev) and i < len(u_next):
-                term = u_prev[i] * u_next[i] * self.marginal_pdfs[axis][i]
-                terms.append(term)
-        
-        # Calculate sigma_sq_S
-        sigma_sq_S = sum(terms) / 4.0
-        return sigma_sq_S
-
-    def calculate_sigma_sq_S_vectorized(self, axis):
-        """Calculate variance of score S using vectorized operations.
-        
-        Parameters
-        ----------
-        axis : int
-            Axis for which to calculate score variance
-            
-        Returns
-        -------
-        float
-            Variance of score S for given axis
-        """
-        # Get consecutive CDF values
-        u_prev = self.marginal_cdfs[axis][:-1]
-        u_next = self.marginal_cdfs[axis][1:]
-        
-        # Vectorized multiplication of all terms
-        terms = u_prev * u_next * self.marginal_pdfs[axis]
-        
-        # Calculate sigma_sq_S
-        sigma_sq_S = np.sum(terms) / 4.0
-        return sigma_sq_S
-
-    def calculate_SCCRAM(self, from_axis, to_axis):
-        """Calculate standardized CCRAM.
-        
-        Parameters
-        ----------
-        from_axis : int
-            Source axis for directional association
-        to_axis : int
-            Target axis for directional association
-            
-        Returns
-        -------
-        float
-            SCCRAM value in [0,1]
-        """
-        ccram = self.calculate_CCRAM(from_axis, to_axis)
-        sigma_sq_S = self.calculate_sigma_sq_S(to_axis)
-        
+        # Calculate scaled version
+        sigma_sq_S = self._calculate_sigma_sq_S_vectorized(to_axis)
         if sigma_sq_S < 1e-10:
             return 1.0 if ccram >= 1e-10 else 0.0
-            
         return ccram / (12 * sigma_sq_S)
 
-    def calculate_SCCRAM_vectorized(self, from_axis, to_axis):
-        """Calculate standardized CCRAM using vectorized operations.
-        
-        Parameters
-        ----------
-        from_axis : int
-            Source axis for directional association
-        to_axis : int
-            Target axis for directional association
-            
-        Returns
-        -------
-        float
-            SCCRAM value in [0,1]
-        """
-        ccram = self.calculate_CCRAM_vectorized(from_axis, to_axis)
-        sigma_sq_S = self.calculate_sigma_sq_S_vectorized(to_axis)
-        
-        if sigma_sq_S < 1e-10:
-            return 1.0 if ccram >= 1e-10 else 0.0
-            
-        return ccram / (12 * sigma_sq_S)    
-        
     def predict_category(self, source_category, from_axis, to_axis):
         """Predict category for target axis given source category.
         
@@ -554,3 +479,55 @@ class GenericCheckerboardCopula:
             Array of predicted category indices (0-based)
         """
         return np.searchsorted(marginal_cdf[1:-1], regression_values, side='left')
+    
+    def _calculate_sigma_sq_S(self, axis):
+        """Calculate variance of score S for given axis.
+        
+        Parameters
+        ----------
+        axis : int
+            Axis for which to calculate score variance
+            
+        Returns
+        -------
+        float
+            Variance of score S for given axis
+        """
+        # Get consecutive CDF values
+        u_prev = self.marginal_cdfs[axis][:-1]
+        u_next = self.marginal_cdfs[axis][1:]
+        
+        # Calculate each term in the sum
+        terms = []
+        for i in range(len(self.marginal_pdfs[axis])):
+            if i < len(u_prev) and i < len(u_next):
+                term = u_prev[i] * u_next[i] * self.marginal_pdfs[axis][i]
+                terms.append(term)
+        
+        # Calculate sigma_sq_S
+        sigma_sq_S = sum(terms) / 4.0
+        return sigma_sq_S
+
+    def _calculate_sigma_sq_S_vectorized(self, axis):
+        """Calculate variance of score S using vectorized operations.
+        
+        Parameters
+        ----------
+        axis : int
+            Axis for which to calculate score variance
+            
+        Returns
+        -------
+        float
+            Variance of score S for given axis
+        """
+        # Get consecutive CDF values
+        u_prev = self.marginal_cdfs[axis][:-1]
+        u_next = self.marginal_cdfs[axis][1:]
+        
+        # Vectorized multiplication of all terms
+        terms = u_prev * u_next * self.marginal_pdfs[axis]
+        
+        # Calculate sigma_sq_S
+        sigma_sq_S = np.sum(terms) / 4.0
+        return sigma_sq_S

@@ -1,6 +1,6 @@
 import numpy as np
 import pytest
-from discopula import CheckerboardCopula
+from discopula.checkerboard.copula import CheckerboardCopula
 
 @pytest.fixture
 def checkerboard_copula():

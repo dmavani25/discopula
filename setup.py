@@ -17,7 +17,7 @@ CLASSIFIERS = [
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
 ]
-INSTALL_REQUIRES = ["numpy", "scipy"]
+INSTALL_REQUIRES = ["numpy", "scipy", "matplotlib"]
 ENTRY_POINTS = {}
 SCRIPTS = []
 

@@ -86,17 +86,37 @@ def test_calculate_regression(generic_copula, u, target_axis, given_axis, expect
 ])
 def test_calculate_CCRAM(generic_copula, from_axis, to_axis, expected_ccram):
     """Test CCRAM calculations."""
-    calculated = generic_copula.calculate_CCRAM(from_axis, to_axis)
+    calculated = generic_copula.calculate_CCRAM(from_axis, to_axis, is_scaled=False)
+    np.testing.assert_almost_equal(calculated, expected_ccram)
+    
+# CCRAM Vectorized Tests
+@pytest.mark.parametrize("from_axis, to_axis, expected_ccram", [
+    (0, 1, 0.84375),  # X1->X2
+    (1, 0, 0.0)       # X2->X1
+])
+def test_calculate_CCRAM_vectorized(generic_copula, from_axis, to_axis, expected_ccram):
+    """Test vectorized CCRAM calculations."""
+    calculated = generic_copula.calculate_CCRAM_vectorized(from_axis, to_axis, is_scaled=False)
     np.testing.assert_almost_equal(calculated, expected_ccram)
 
 # SCCRAM Tests
 @pytest.mark.parametrize("from_axis, to_axis, expected_sccram", [
     (0, 1, 0.84375/(12*0.0703125)),  # X1->X2
-    (1, 0, 0.0)                       # X2->X1
+    (1, 0, 0.0)                      # X2->X1
 ])
 def test_calculate_SCCRAM(generic_copula, from_axis, to_axis, expected_sccram):
     """Test SCCRAM calculations."""
-    calculated = generic_copula.calculate_SCCRAM(from_axis, to_axis)
+    calculated = generic_copula.calculate_CCRAM(from_axis, to_axis, is_scaled=True)
+    np.testing.assert_almost_equal(calculated, expected_sccram)
+    
+# SCCRAM Vectorized Tests
+@pytest.mark.parametrize("from_axis, to_axis, expected_sccram", [
+    (0, 1, 0.84375/(12*0.0703125)),  # X1->X2
+    (1, 0, 0.0)                      # X2->X1
+])
+def test_calculate_SCCRAM_vectorized(generic_copula, from_axis, to_axis, expected_sccram):
+    """Test vectorized SCCRAM calculations."""
+    calculated = generic_copula.calculate_CCRAM_vectorized(from_axis, to_axis, is_scaled=True)
     np.testing.assert_almost_equal(calculated, expected_sccram)
 
 # Category Prediction Tests

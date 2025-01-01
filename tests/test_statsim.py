@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
-from discopula import CheckerboardCopula
-from discopula import (
+from discopula.checkerboard.copula import CheckerboardCopula
+from discopula.checkerboard.statsim import (
     bootstrap_ccram, bootstrap_sccram,
     bootstrap_regression_U1_on_U2, bootstrap_regression_U2_on_U1,
     bootstrap_regression_U1_on_U2_vectorized, bootstrap_regression_U2_on_U1_vectorized,

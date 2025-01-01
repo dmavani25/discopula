@@ -1025,3 +1025,15 @@ def permutation_test_ccram(contingency_table, direction="X1_X2", alternative='gr
     )
     
     return res
+
+if __name__ == "__main__":
+    table = np.array([
+        [0, 0, 20],
+        [0, 10, 0],
+        [20, 0, 0],
+        [0, 10, 0],
+        [0, 0, 20]
+    ])
+    res = bootstrap_ccram(table,"X2_X1", method="percentile")
+    print(res.confidence_interval)
+    print(res.standard_error)

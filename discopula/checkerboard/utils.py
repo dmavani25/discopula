@@ -1,4 +1,5 @@
 import numpy as np
+from typing import Tuple
         
 def contingency_to_case_form(contingency_table):
     """Convert a contingency table to case-form data representation.
@@ -108,3 +109,63 @@ def case_form_to_contingency(cases, n_rows, n_cols):
             i, j = case
             table[i, j] += 1
         return table
+
+def gen_contingency_to_case_form(contingency_table: np.ndarray) -> np.ndarray:
+    """Convert contingency table to case form."""
+    indices = np.nonzero(contingency_table)
+    counts = contingency_table[indices]
+    cases = []
+    for i, j, count in zip(*indices, counts):
+        cases.extend([[i, j]] * int(count))
+    return np.array(cases)
+
+def gen_case_form_to_contingency(cases: np.ndarray, 
+                                shape: tuple,
+                                axis_order: list = None) -> np.ndarray:
+    """Convert cases to contingency table with specified axis ordering.
+    
+    Parameters
+    ----------
+    cases : np.ndarray
+        Array of cases where each row is a sample
+    shape : tuple
+        Shape of output contingency table
+    axis_order : list, optional
+        Order of axes for reconstruction
+    
+    Returns
+    -------
+    np.ndarray
+        Reconstructed contingency table
+    """
+    if axis_order is None:
+        axis_order = list(range(cases.shape[1]))
+        
+    table = np.zeros(shape, dtype=int)
+    
+    # Handle both 2D and 3D cases
+    if cases.ndim == 3:
+        # For batched data
+        for batch in cases:
+            for case in batch:
+                idx = tuple(int(x) for x in case[axis_order])
+                table[idx] += 1
+    else:
+        # For single batch
+        for case in cases:
+            idx = tuple(int(x) for x in case[axis_order])
+            table[idx] += 1
+            
+    return table
+
+if __name__ == '__main__':
+    table0 = np.array([[1, 0], [0, 2]])
+    cases = contingency_to_case_form(table0)
+    print(cases)
+    table = case_form_to_contingency(cases, 2, 2)
+    print(table)
+    print("----")
+    cases2 = gen_contingency_to_case_form(table0)
+    print(cases2)
+    table2 = gen_case_form_to_contingency(cases2, (2, 2))
+    print(table2)
