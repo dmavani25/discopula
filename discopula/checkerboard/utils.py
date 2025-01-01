@@ -1,5 +1,4 @@
 import numpy as np
-from typing import Tuple
         
 def contingency_to_case_form(contingency_table):
     """Convert a contingency table to case-form data representation.
