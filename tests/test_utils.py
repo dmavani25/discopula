@@ -102,7 +102,7 @@ def gen_3d_cases():
         [[1, 0], [1, 1]]
     ])
 
-def test_gen_contingency_to_case_form(gen_contingency_table, gen_case_form_data):
+def test_gen_contingency_to_case_form_2d(gen_contingency_table, gen_case_form_data):
     """Test gen_contingency_to_case_form conversion."""
     cases = gen_contingency_to_case_form(gen_contingency_table)
     # Sort both arrays to ensure consistent comparison
