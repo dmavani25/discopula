@@ -366,7 +366,7 @@ def display_prediction_summary(summary_matrix: np.ndarray,
     )
     
     # Display with styling
-    print(f"\nPrediction Summary (% of bootstrap samples)")
+    print("\nPrediction Summary (% of bootstrap samples)")
     print(f"From {from_axis_name} to {to_axis_name}:")
     print("-" * 50)
     print(df.to_string(float_format=lambda x: f"{x:5.1f}%"))
