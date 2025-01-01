@@ -59,60 +59,23 @@ def test_case_form_to_contingency(contingency_table, case_form_data):
     reconstructed_table = case_form_to_contingency(case_form_data, n_rows, n_cols)
     np.testing.assert_array_equal(reconstructed_table, contingency_table)
     
-@pytest.fixture
-def gen_contingency_table():
-    """
-    Fixture to create a sample contingency table.
-    """
-    return np.array([
-        [0, 0, 20],
-        [0, 10, 0],
-        [20, 0, 0],
-        [0, 10, 0],
-        [0, 0, 20]
-    ])
-    
-@pytest.fixture
-def gen_case_form_data():
-    """
-    Fixture to create a sample case-form data array.
-    """
-    return np.array([
-        [0, 2], [0, 2], [0, 2], [0, 2], [0, 2],
-        [0, 2], [0, 2], [0, 2], [0, 2], [0, 2],
-        [0, 2], [0, 2], [0, 2], [0, 2], [0, 2],
-        [0, 2], [0, 2], [0, 2], [0, 2], [0, 2],
-        [1, 1], [1, 1], [1, 1], [1, 1], [1, 1],
-        [1, 1], [1, 1], [1, 1], [1, 1], [1, 1],
-        [2, 0], [2, 0], [2, 0], [2, 0], [2, 0],
-        [2, 0], [2, 0], [2, 0], [2, 0], [2, 0],
-        [2, 0], [2, 0], [2, 0], [2, 0], [2, 0],
-        [2, 0], [2, 0], [2, 0], [2, 0], [2, 0],
-        [3, 1], [3, 1], [3, 1], [3, 1], [3, 1],
-        [3, 1], [3, 1], [3, 1], [3, 1], [3, 1],
-        [4, 2], [4, 2], [4, 2], [4, 2], [4, 2],
-        [4, 2], [4, 2], [4, 2], [4, 2], [4, 2],
-        [4, 2], [4, 2], [4, 2], [4, 2], [4, 2],
-        [4, 2], [4, 2], [4, 2], [4, 2], [4, 2]
-    ])
-    
-def test_gen_contingency_to_case_form(gen_contingency_table, gen_case_form_data):
+def test_gen_contingency_to_case_form(contingency_table, case_form_data):
     """
     Test gen_contingency_to_case_form conversion.
     """
-    cases = gen_contingency_to_case_form(gen_contingency_table)
+    cases = gen_contingency_to_case_form(contingency_table)
     # Sort both arrays to ensure consistent comparison
     np.testing.assert_array_equal(
         cases[np.lexsort(cases.T)],
-        gen_case_form_data[np.lexsort(gen_case_form_data.T)]
+        case_form_data[np.lexsort(case_form_data.T)]
     )
 
-def test_gen_case_form_to_contingency(gen_contingency_table, gen_case_form_data):
+def test_gen_case_form_to_contingency(contingency_table, case_form_data):
     """
     Test gen_case_form_to_contingency conversion.
     """
-    reconstructed = gen_case_form_to_contingency(gen_case_form_data, gen_contingency_table.shape)
-    np.testing.assert_array_equal(reconstructed, gen_contingency_table)
+    reconstructed = gen_case_form_to_contingency(case_form_data, contingency_table.shape)
+    np.testing.assert_array_equal(reconstructed, contingency_table)
 
 @pytest.fixture
 def gen_contingency_table():
