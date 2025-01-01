@@ -149,7 +149,7 @@ def test_display_prediction_summary(complex_table):
     assert "B=0" in output
     assert "100" in output
 
-def test_reproducibility(simple_table):
+def test_reproducibility_for_pred(simple_table):
     """Test result reproducibility with same random state."""
     result1 = _bootstrap_predict_category(
         simple_table,
@@ -172,7 +172,7 @@ def test_reproducibility(simple_table):
         result2.bootstrap_distribution
     )
 
-def test_invalid_inputs():
+def test_invalid_inputs_for_pred():
     """Test handling of invalid inputs."""
     valid_table = np.array([[10, 0], [0, 10]])
     
