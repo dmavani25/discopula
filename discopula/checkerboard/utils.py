@@ -156,15 +156,3 @@ def gen_case_form_to_contingency(cases: np.ndarray,
             table[idx] += 1
             
     return table
-
-if __name__ == '__main__':
-    table0 = np.array([[1, 0], [0, 2]])
-    cases = contingency_to_case_form(table0)
-    print(cases)
-    table = case_form_to_contingency(cases, 2, 2)
-    print(table)
-    print("----")
-    cases2 = gen_contingency_to_case_form(table0)
-    print(cases2)
-    table2 = gen_case_form_to_contingency(cases2, (2, 2))
-    print(table2)

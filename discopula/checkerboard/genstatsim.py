@@ -491,38 +491,3 @@ def permutation_test_ccram(contingency_table: np.ndarray,
     result.histogram_fig = null_dist_fig
     
     return result
-
-# Example usage
-if __name__ == '__main__':
-    table = np.array([
-        [0, 0, 20],
-        [0, 10, 0],
-        [20, 0, 0],
-        [0, 10, 0],
-        [0, 0, 20]
-    ])
-    
-    # Bootstrap analysis
-    boot_result = bootstrap_ccram(
-        table, from_axis=0, to_axis=1, n_resamples=9999
-    )
-    print(f"Observed CCRAM: {boot_result.observed_value:.4f}")
-    print(f"95% CI: ({boot_result.confidence_interval[0]:.4f}, "
-          f"{boot_result.confidence_interval[1]:.4f})")
-    print(f"Standard Error: {boot_result.standard_error:.4f}")
-    boot_result.histogram_fig.show()
-    
-    # Permutation test
-    perm_result = permutation_test_ccram(
-        table, from_axis=0, to_axis=1, n_resamples=9999
-    )
-    print(f"Observed CCRAM: {perm_result.observed_value:.4f}")
-    print(f"P-value: {perm_result.p_value:.4f}")
-    perm_result.histogram_fig.show()
-    
-    # Bootstrap Regression summary
-    summary = bootstrap_predict_category_summary(
-        table, from_axis=0, to_axis=1, n_resamples=9999
-    )
-    print(summary)
-    display_prediction_summary(summary)
