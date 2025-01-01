@@ -1,6 +1,12 @@
 import numpy as np
 import pytest
-from discopula import bootstrap_ccram, permutation_test_ccram
+from io import StringIO
+import sys
+from discopula import bootstrap_ccram, permutation_test_ccram, bootstrap_predict_category_summary, display_prediction_summary
+from discopula.checkerboard.genstatsim import (
+    _bootstrap_predict_category,
+    _bootstrap_predict_category_vectorized,
+)
 
 @pytest.fixture
 def contingency_table():
@@ -62,6 +68,167 @@ def test_bootstrap_ccram_directions(contingency_table, from_axis, to_axis, expec
     assert result.metric_name == expected_metric
     assert hasattr(result, "confidence_interval")
     assert result.confidence_interval[0] < result.confidence_interval[1]
+
+@pytest.fixture
+def simple_table():
+    """Simple 2x2 contingency table."""
+    return np.array([[10, 0], [0, 10]])
+
+@pytest.fixture
+def complex_table():
+    """More complex 3x3 contingency table."""
+    return np.array([
+        [10, 0, 0],
+        [0, 10, 0],
+        [0, 0, 10]
+    ])
+
+def test_bootstrap_predict_category_basic(simple_table):
+    """Test basic functionality of bootstrap category prediction."""
+    result = _bootstrap_predict_category(
+        simple_table,
+        source_category=0,
+        from_axis=0,
+        to_axis=1,
+        n_resamples=999,
+        random_state=42
+    )
+    
+    assert hasattr(result, 'confidence_interval')
+    assert hasattr(result, 'bootstrap_distribution')
+    assert len(result.bootstrap_distribution) == 999
+    assert all(x in [0, 1] for x in result.bootstrap_distribution)
+
+def test_bootstrap_predict_category_vectorized(complex_table):
+    """Test vectorized predictions for multiple categories."""
+    results = _bootstrap_predict_category_vectorized(
+        complex_table,
+        source_categories=np.array([0, 1]),
+        from_axis=0,
+        to_axis=1,
+        n_resamples=999,
+        random_state=42
+    )
+    
+    assert isinstance(results, list)
+    assert len(results) == 2
+    assert all(len(r.bootstrap_distribution) == 999 for r in results)
+
+def test_bootstrap_predict_category_summary(complex_table):
+    """Test summary table generation."""
+    summary = bootstrap_predict_category_summary(
+        complex_table,
+        from_axis=0,
+        to_axis=1,
+        n_resamples=999,
+        random_state=42
+    )
+    
+    assert isinstance(summary, np.ndarray)
+    assert summary.shape == (3, 3)
+    assert np.all(summary >= 0)
+    assert np.all(summary <= 100)
+    assert np.allclose(np.sum(summary, axis=0), [100, 100, 100], atol=1e-10)
+
+def test_display_prediction_summary(complex_table):
+    """Test summary display formatting."""
+    summary = np.array([[100, 0, 0], [0, 100, 0], [0, 0, 100]])
+    
+    # Capture stdout
+    stdout = StringIO()
+    sys.stdout = stdout
+    
+    display_prediction_summary(summary, "A", "B")
+    
+    sys.stdout = sys.__stdout__
+    output = stdout.getvalue()
+    
+    assert "Prediction Summary" in output
+    assert "From A to B:" in output
+    assert "A=0" in output
+    assert "B=0" in output
+    assert "100" in output
+
+def test_reproducibility(simple_table):
+    """Test result reproducibility with same random state."""
+    result1 = _bootstrap_predict_category(
+        simple_table,
+        source_category=0,
+        from_axis=0,
+        to_axis=1,
+        random_state=42
+    )
+    
+    result2 = _bootstrap_predict_category(
+        simple_table,
+        source_category=0,
+        from_axis=0,
+        to_axis=1,
+        random_state=42
+    )
+    
+    np.testing.assert_array_equal(
+        result1.bootstrap_distribution,
+        result2.bootstrap_distribution
+    )
+
+def test_invalid_inputs():
+    """Test handling of invalid inputs."""
+    valid_table = np.array([[10, 0], [0, 10]])
+    
+    # Test invalid axes
+    with pytest.raises((ValueError, IndexError, KeyError)):
+        _bootstrap_predict_category(valid_table, 0, 2, 1)
+    
+    # Test invalid category
+    with pytest.raises((ValueError, IndexError)):
+        _bootstrap_predict_category(valid_table, 5, 0, 1)
+    
+    # Test invalid table shapes
+    invalid_tables = [
+        np.array([1, 2]),  # 1D
+        np.array([[-1, 0], [0, 1]]),  # Negative values
+        np.array([[0, 0], [0, 0]])  # All zeros
+    ]
+    
+    for table in invalid_tables:
+        with pytest.raises((ValueError, IndexError)):
+            _bootstrap_predict_category(table, 0, 0, 1)
+
+def test_confidence_levels(simple_table):
+    """Test different confidence levels."""
+    levels = [0.90, 0.95, 0.99]
+    
+    for level in levels:
+        result = _bootstrap_predict_category(
+            simple_table,
+            source_category=0,
+            from_axis=0,
+            to_axis=1,
+            confidence_level=level,
+            random_state=42
+        )
+        
+        ci = result.confidence_interval
+        assert ci.low <= ci.high
+        assert 0 <= ci.low <= 1
+        assert 0 <= ci.high <= 1
+
+def test_different_methods(simple_table):
+    """Test different bootstrap methods."""
+    methods = ['percentile', 'basic']
+    
+    for method in methods:
+        result = _bootstrap_predict_category(
+            simple_table,
+            source_category=0,
+            from_axis=0,
+            to_axis=1,
+            method=method,
+            random_state=42
+        )
+        
+        assert hasattr(result, 'confidence_interval')
 
 def test_permutation_test_ccram_basic(contingency_table):
     """Test basic functionality of permutation_test_ccram."""

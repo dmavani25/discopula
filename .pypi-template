@@ -15,7 +15,7 @@ package_tagline: Discrete checkerboard copula modeling and implementation of new
   methods pertaining to ordinal and categorical discrete data.
 package_title: discopula
 readme: .github/README.md
-requires: ["numpy", "pytest", "coverage", "scipy", "matplotlib"]
+requires: ["numpy", "pytest", "coverage", "scipy", "matplotlib", "pandas"]
 scripts: []
 version: 0.6.1
 your_author_name: Dhyey Mavani

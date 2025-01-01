@@ -1,8 +1,9 @@
 import numpy as np
 from scipy.stats import bootstrap, permutation_test
 from dataclasses import dataclass
-from typing import Tuple
+from typing import Tuple, List
 import matplotlib.pyplot as plt
+import pandas as pd
 from .gencopula import GenericCheckerboardCopula
 from .utils import gen_contingency_to_case_form, gen_case_form_to_contingency
 
@@ -133,6 +134,243 @@ def bootstrap_ccram(contingency_table: np.ndarray,
     cust_boot_res.histogram_fig = boot_dist_fig
     
     return cust_boot_res
+
+def _bootstrap_predict_category(
+    contingency_table: np.ndarray,
+    source_category: int,
+    from_axis: int,
+    to_axis: int,
+    n_resamples: int = 9999,
+    confidence_level: float = 0.95,
+    method: str = 'percentile',
+    random_state = None
+):
+    """Bootstrap confidence intervals for generic category prediction.
+    
+    Parameters
+    ----------
+    contingency_table : numpy.ndarray
+        Contingency table of observed frequencies
+    source_category : int
+        Source category index to predict from (0-based)
+    from_axis : int
+        Source axis index
+    to_axis : int
+        Target axis index
+    n_resamples : int, default=9999
+        Number of bootstrap resamples
+    confidence_level : float, default=0.95
+        Confidence level for intervals
+    method : str, default='percentile'
+        Bootstrap CI method
+    random_state : optional
+        Random state for reproducibility
+
+    Returns
+    -------
+    scipy.stats.BootstrapResult
+        Bootstrap results including CIs and distribution
+    """
+    # Convert table to case form
+    cases = gen_contingency_to_case_form(contingency_table)
+    
+    # Split variables
+    x_source, x_target = cases[:, from_axis], cases[:, to_axis]
+    data = (x_source, x_target)
+
+    def prediction_stat(x_source, x_target, axis=0):
+        if x_source.ndim > 1:
+            batch_size = x_source.shape[0]
+            cases = np.stack([np.column_stack((x_source[i], x_target[i])) 
+                            for i in range(batch_size)])
+        else:
+            cases = np.column_stack((x_source, x_target))
+            
+        # Reconstruct table
+        if cases.ndim == 3:
+            results = []
+            for batch_cases in cases:
+                table = gen_case_form_to_contingency(
+                    batch_cases,
+                    shape=contingency_table.shape,
+                    axis_order=[from_axis, to_axis]
+                )
+                copula = GenericCheckerboardCopula.from_contingency_table(table)
+                pred = copula.predict_category(source_category, from_axis, to_axis)
+                results.append(pred)
+            return np.array(results)
+        else:
+            table = gen_case_form_to_contingency(
+                cases,
+                shape=contingency_table.shape,
+                axis_order=[from_axis, to_axis]
+            )
+            copula = GenericCheckerboardCopula.from_contingency_table(table)
+            return copula.predict_category(source_category, from_axis, to_axis)
+
+    # Perform bootstrap
+    return bootstrap(
+        data,
+        prediction_stat,
+        n_resamples=n_resamples,
+        confidence_level=confidence_level,
+        method=method,
+        random_state=random_state,
+        paired=True,
+        vectorized=True
+    )
+
+def _bootstrap_predict_category_vectorized(
+    contingency_table: np.ndarray,
+    source_categories: np.ndarray,
+    from_axis: int,
+    to_axis: int,
+    n_resamples: int = 9999,
+    confidence_level: float = 0.95,
+    method: str = 'percentile',
+    random_state = None
+) -> List:
+    """Vectorized bootstrapping for multiple category predictions.
+    
+    Parameters
+    ----------
+    contingency_table : numpy.ndarray
+        Contingency table
+    source_categories : array-like
+        Source categories to predict from
+    from_axis : int
+        Source axis index
+    to_axis : int
+        Target axis index
+    n_resamples : int, default=9999
+        Number of resamples
+    confidence_level : float, default=0.95
+        Confidence level
+    method : str, default='percentile'
+        Bootstrap CI method
+    random_state : optional
+        Random state
+
+    Returns
+    -------
+    list
+        Bootstrap results for each source category
+    """
+    source_categories = np.asarray(source_categories)
+    results = []
+    
+    for source_cat in source_categories:
+        res = _bootstrap_predict_category(
+            contingency_table,
+            source_cat,
+            from_axis,
+            to_axis,
+            n_resamples=n_resamples,
+            confidence_level=confidence_level,
+            method=method,
+            random_state=random_state
+        )
+        results.append(res)
+    
+    return results
+
+def bootstrap_predict_category_summary(
+    contingency_table: np.ndarray,
+    from_axis: int,
+    to_axis: int,
+    n_resamples: int = 9999,
+    confidence_level: float = 0.95,
+    method: str = 'percentile',
+    random_state = None
+) -> np.ndarray:
+    """Generate bootstrap summary table for all category combinations.
+    
+    Parameters
+    ----------
+    contingency_table : numpy.ndarray
+        Contingency table
+    from_axis : int
+        Source axis index
+    to_axis : int
+        Target axis index
+    n_resamples : int, default=9999
+        Number of resamples
+    confidence_level : float, default=0.95
+        Confidence level
+    method : str, default='percentile'
+        Bootstrap CI method
+    random_state : optional
+        Random state
+
+    Returns
+    -------
+    numpy.ndarray
+        Summary table of prediction proportions
+    """
+    source_dim = contingency_table.shape[from_axis]
+    target_dim = contingency_table.shape[to_axis]
+    
+    # Get predictions for all source categories
+    results = _bootstrap_predict_category_vectorized(
+        contingency_table,
+        np.arange(source_dim),
+        from_axis,
+        to_axis,
+        n_resamples=n_resamples,
+        confidence_level=confidence_level,
+        method=method,
+        random_state=random_state
+    )
+    
+    # Initialize summary table
+    summary = np.zeros((target_dim, source_dim))
+    
+    # Fill summary table with prediction proportions
+    for source_cat in range(source_dim):
+        bootstrap_preds = results[source_cat].bootstrap_distribution
+        unique_preds, counts = np.unique(bootstrap_preds, return_counts=True)
+        total = len(bootstrap_preds)
+        
+        for val, count in zip(unique_preds, counts):
+            summary[int(val), source_cat] = (count / total) * 100
+            
+    return summary
+
+def display_prediction_summary(summary_matrix: np.ndarray, 
+                             from_axis_name: str = "X",
+                             to_axis_name: str = "Y") -> None:
+    """Display prediction summary matrix in a nicely formatted table.
+    
+    Parameters
+    ----------
+    summary_matrix : np.ndarray
+        Matrix of prediction percentages
+    from_axis_name : str, default="X"
+        Name of source variable
+    to_axis_name : str, default="Y"  
+        Name of target variable
+    """
+    # Round percentages to 1 decimal place
+    summary_rounded = np.round(summary_matrix, 1)
+    
+    # Create row and column labels
+    n_rows, n_cols = summary_matrix.shape
+    row_labels = [f"{to_axis_name}={i}" for i in range(n_rows)]
+    col_labels = [f"{from_axis_name}={i}" for i in range(n_cols)]
+    
+    # Create pandas DataFrame
+    df = pd.DataFrame(
+        summary_rounded,
+        index=row_labels,
+        columns=col_labels
+    )
+    
+    # Display with styling
+    print(f"\nPrediction Summary (% of bootstrap samples)")
+    print(f"From {from_axis_name} to {to_axis_name}:")
+    print("-" * 50)
+    print(df.to_string(float_format=lambda x: f"{x:5.1f}%"))
+    print("-" * 50)
 
 @dataclass 
 class CustomPermutationResult:
@@ -281,3 +519,10 @@ if __name__ == '__main__':
     print(f"Observed CCRAM: {perm_result.observed_value:.4f}")
     print(f"P-value: {perm_result.p_value:.4f}")
     perm_result.histogram_fig.show()
+    
+    # Bootstrap Regression summary
+    summary = bootstrap_predict_category_summary(
+        table, from_axis=0, to_axis=1, n_resamples=9999
+    )
+    print(summary)
+    display_prediction_summary(summary)
