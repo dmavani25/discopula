@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 import pytest
 from discopula import GenericCheckerboardCopula
 
@@ -127,30 +128,30 @@ def test_calculate_SCCRAM_vectorized(generic_copula, from_axis, to_axis, expecte
 ])
 def test_predict_category(generic_copula, source_category, from_axis, to_axis, expected_category):
     """Test category prediction."""
-    predicted = generic_copula.predict_category(source_category, from_axis, to_axis)
+    predicted = generic_copula._predict_category(source_category, from_axis, to_axis)
     assert predicted == expected_category
 
 def test_predict_category_batched(generic_copula):
     """Test batched category prediction."""
     source_categories = np.array([0, 1, 2, 3, 4])
     expected = np.array([2, 1, 0, 1, 2])
-    predicted = generic_copula.predict_category_batched(source_categories, 0, 1)
+    predicted = generic_copula._predict_category_batched(source_categories, 0, 1)
     np.testing.assert_array_equal(predicted, expected)
 
 # Invalid Cases Tests
 def test_invalid_predictions(generic_copula):
     """Test invalid prediction handling."""
     with pytest.raises(IndexError):
-        generic_copula.predict_category(5, 0, 1)
+        generic_copula._predict_category(5, 0, 1)
     with pytest.raises(IndexError):
-        generic_copula.predict_category_batched(np.array([0, 5, 2]), 0, 1)
+        generic_copula._predict_category_batched(np.array([0, 5, 2]), 0, 1)
 
 # Special Cases Tests
 def test_prediction_special_cases(generic_copula):
     """Test edge cases in predictions."""
-    single_pred = generic_copula.predict_category_batched(np.array([0]), 0, 1)
+    single_pred = generic_copula._predict_category_batched(np.array([0]), 0, 1)
     assert len(single_pred) == 1
-    assert single_pred[0] == generic_copula.predict_category(0, 0, 1)
+    assert single_pred[0] == generic_copula._predict_category(0, 0, 1)
 
 # Consistency Tests
 def test_calculation_consistency(contingency_table):
@@ -169,3 +170,47 @@ def test_vectorized_consistency(generic_copula):
     regular = generic_copula.calculate_CCRAM(0, 1)
     vectorized = generic_copula.calculate_CCRAM_vectorized(0, 1)
     np.testing.assert_almost_equal(regular, vectorized)
+    
+def test_get_category_predictions_basic(generic_copula):
+    """Test basic functionality of get_category_predictions."""
+    df = generic_copula.get_category_predictions(0, 1)
+    
+    # Check DataFrame structure
+    assert isinstance(df, pd.DataFrame)
+    assert len(df) == generic_copula.P.shape[0]
+    assert list(df.columns) == ['X Category', 'Predicted Y Category']
+    
+    # Check predictions match individual predictions
+    for idx, row in df.iterrows():
+        expected = generic_copula._predict_category(idx, 0, 1)
+        assert row['Predicted Y Category'] == expected
+
+def test_get_category_predictions_custom_names(generic_copula):
+    """Test get_category_predictions with custom axis names."""
+    df = generic_copula.get_category_predictions(
+        0, 1, 
+        from_axis_name="Income", 
+        to_axis_name="Education"
+    )
+    assert list(df.columns) == ['Income Category', 'Predicted Education Category']
+
+def test_get_category_predictions_known_values(generic_copula):
+    """Test get_category_predictions against known mappings."""
+    expected_predictions = {
+        0: 2,
+        1: 1,
+        2: 0, 
+        3: 1, 
+        4: 2 
+    }
+    
+    df = generic_copula.get_category_predictions(0, 1)
+    for source_cat, predicted_cat in expected_predictions.items():
+        assert df.iloc[source_cat]['Predicted Y Category'] == predicted_cat
+
+def test_get_category_predictions_invalid_axes(generic_copula):
+    """Test get_category_predictions with invalid axes."""
+    with pytest.raises(IndexError):
+        generic_copula.get_category_predictions(2, 1)  # Invalid from_axis
+    with pytest.raises(IndexError):
+        generic_copula.get_category_predictions(0, 2)  # Invalid to_axis

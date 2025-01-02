@@ -9,7 +9,23 @@ from .utils import gen_contingency_to_case_form, gen_case_form_to_contingency
 
 @dataclass
 class CustomBootstrapResult:
-    """Custom container for bootstrap results."""
+    """Container for bootstrap simulation results with visualization capabilities.
+    
+    Parameters
+    ----------
+    metric_name : str
+        Name of the metric being bootstrapped
+    observed_value : float
+        Original observed value of the metric
+    confidence_interval : Tuple[float, float]
+        Lower and upper confidence interval bounds
+    bootstrap_distribution : np.ndarray
+        Array of bootstrapped values
+    standard_error : float 
+        Standard error of the bootstrap distribution
+    histogram_fig : plt.Figure, optional
+        Matplotlib figure of distribution plot
+    """
     metric_name: str
     observed_value: float
     confidence_interval: Tuple[float, float]
@@ -53,7 +69,32 @@ def bootstrap_ccram(contingency_table: np.ndarray,
                    confidence_level: float = 0.95,
                    method: str = 'percentile',
                    random_state = None) -> CustomBootstrapResult:
+    """Perform bootstrap simulation for (S)CCRAM measure.
     
+    Parameters
+    ----------
+    contingency_table : numpy.ndarray
+        Input contingency table
+    from_axis : int
+        Source axis index
+    to_axis : int  
+        Target axis index
+    is_scaled : bool, default=False
+        Whether to use scaled CCRAM (SCCRAM)
+    n_resamples : int, default=9999
+        Number of bootstrap resamples
+    confidence_level : float, default=0.95
+        Confidence level for intervals
+    method : str, default='percentile'
+        Bootstrap CI method
+    random_state : optional
+        Random state for reproducibility
+        
+    Returns
+    -------
+    CustomBootstrapResult
+        Bootstrap results including CIs and distribution
+    """
     # Name the metric based on whether it's scaled
     metric_name = f"{'SCCRAM' if is_scaled else 'CCRAM'} {from_axis}->{to_axis}"
     
@@ -145,32 +186,7 @@ def _bootstrap_predict_category(
     method: str = 'percentile',
     random_state = None
 ):
-    """Bootstrap confidence intervals for generic category prediction.
-    
-    Parameters
-    ----------
-    contingency_table : numpy.ndarray
-        Contingency table of observed frequencies
-    source_category : int
-        Source category index to predict from (0-based)
-    from_axis : int
-        Source axis index
-    to_axis : int
-        Target axis index
-    n_resamples : int, default=9999
-        Number of bootstrap resamples
-    confidence_level : float, default=0.95
-        Confidence level for intervals
-    method : str, default='percentile'
-        Bootstrap CI method
-    random_state : optional
-        Random state for reproducibility
-
-    Returns
-    -------
-    scipy.stats.BootstrapResult
-        Bootstrap results including CIs and distribution
-    """
+    """Helper Function: Bootstrap confidence intervals for generic category prediction."""
     # Convert table to case form
     cases = gen_contingency_to_case_form(contingency_table)
     
@@ -196,7 +212,7 @@ def _bootstrap_predict_category(
                     axis_order=[from_axis, to_axis]
                 )
                 copula = GenericCheckerboardCopula.from_contingency_table(table)
-                pred = copula.predict_category(source_category, from_axis, to_axis)
+                pred = copula._predict_category(source_category, from_axis, to_axis)
                 results.append(pred)
             return np.array(results)
         else:
@@ -206,7 +222,7 @@ def _bootstrap_predict_category(
                 axis_order=[from_axis, to_axis]
             )
             copula = GenericCheckerboardCopula.from_contingency_table(table)
-            return copula.predict_category(source_category, from_axis, to_axis)
+            return copula._predict_category(source_category, from_axis, to_axis)
 
     # Perform bootstrap
     return bootstrap(
@@ -230,32 +246,7 @@ def _bootstrap_predict_category_vectorized(
     method: str = 'percentile',
     random_state = None
 ) -> List:
-    """Vectorized bootstrapping for multiple category predictions.
-    
-    Parameters
-    ----------
-    contingency_table : numpy.ndarray
-        Contingency table
-    source_categories : array-like
-        Source categories to predict from
-    from_axis : int
-        Source axis index
-    to_axis : int
-        Target axis index
-    n_resamples : int, default=9999
-        Number of resamples
-    confidence_level : float, default=0.95
-        Confidence level
-    method : str, default='percentile'
-        Bootstrap CI method
-    random_state : optional
-        Random state
-
-    Returns
-    -------
-    list
-        Bootstrap results for each source category
-    """
+    """Helper Function: Vectorized bootstrapping for multiple category predictions."""
     source_categories = np.asarray(source_categories)
     results = []
     
@@ -374,7 +365,21 @@ def display_prediction_summary(summary_matrix: np.ndarray,
 
 @dataclass 
 class CustomPermutationResult:
-    """Custom container for permutation test results."""
+    """Container for permutation test results with visualization capabilities.
+    
+    Parameters
+    ----------
+    metric_name : str
+        Name of the metric being tested
+    observed_value : float
+        Original observed value
+    p_value : float
+        Permutation test p-value
+    null_distribution : np.ndarray
+        Array of values under null hypothesis
+    histogram_fig : plt.Figure, optional
+        Matplotlib figure of distribution plot
+    """
     metric_name: str
     observed_value: float
     p_value: float
@@ -416,7 +421,30 @@ def permutation_test_ccram(contingency_table: np.ndarray,
                           alternative: str ='greater',
                           n_resamples: int = 9999,
                           random_state: int = None) -> CustomPermutationResult:
-    """Perform permutation test for (S)CCRAM."""
+    """Perform permutation test for (S)CCRAM measure.
+    
+    Parameters
+    ----------
+    contingency_table : numpy.ndarray
+        Input contingency table
+    from_axis : int, default=0
+        Source axis index
+    to_axis : int, default=1
+        Target axis index
+    is_scaled : bool, default=False
+        Whether to use scaled CCRAM (SCCRAM)
+    alternative : str, default='greater'
+        Alternative hypothesis ('greater', 'less', 'two-sided')
+    n_resamples : int, default=9999
+        Number of permutations
+    random_state : int, optional
+        Random state for reproducibility
+        
+    Returns
+    -------
+    CustomPermutationResult
+        Test results including p-value and null distribution
+    """
     # Name the metric based on whether it's scaled
     metric_name = f"{'SCCRAM' if is_scaled else 'CCRAM'} {from_axis}->{to_axis}"
     

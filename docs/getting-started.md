@@ -1,4 +1,4 @@
-# Getting Started
+## Getting Started
 
 This package (discopula) is hosted on PyPi, so for installation follow the following workflow ...
 
@@ -6,7 +6,9 @@ This package (discopula) is hosted on PyPi, so for installation follow the follo
 $ pip install discopula
 ```
 
-Alternatively, if you would like to have a virtual environment for your use of this package, then follow the following workflow. For best practices, it's recommended to use a virtual environment:
+Now, you should be all set to use it in a Jupyter Notebook!
+
+Alternatively, if you would like to use it in a project, we recommend you to have a virtual environment for your use of this package, then follow the following workflow. For best practices, it's recommended to use a virtual environment:
 
 1. First, create and activate a virtual environment (Python 3.8+ recommended):
 
@@ -33,11 +35,19 @@ $ pip install discopula
 $ deactivate
 ```
 
-## Quick Start Example
+## Documentation
+
+Visit [Read the Docs](https://discopula.readthedocs.org) for the full documentation, including overviews and several examples.
+
+## Examples
+
+For a quick overview, refer to the quick-start example below. More detailed examples for Jupyter Notebooks and beyond (organized by functionality) can be found in our [GitHub repository's examples folder](https://github.com/dmavani25/discopula/tree/master/examples).
+
+### Quick-Start Example
 
 ```python
 import numpy as np
-from discopula import CheckerboardCopula
+from discopula import GenericCheckerboardCopula
 
 # Create a sample contingency table
 contingency_table = np.array([
@@ -49,31 +59,44 @@ contingency_table = np.array([
 ])
 
 # Initialize copula from contingency table
-copula = CheckerboardCopula.from_contingency_table(contingency_table)
+copula = GenericCheckerboardCopula.from_contingency_table(contingency_table)
 
-# Basic properties
+# Basic properties 
 print(f"Shape of probability matrix P: {copula.P.shape}")
-print(f"Marginal CDF X1: {copula.marginal_cdf_X1}")
-print(f"Marginal CDF X2: {copula.marginal_cdf_X2}")
+print(f"Marginal CDF axis 0: {copula.marginal_cdfs[0]}")
+print(f"Marginal CDF axis 1: {copula.marginal_cdfs[1]}")
 
 # Regression calculations
 u1, u2 = 0.5, 0.5
-print(f"E[U2|U1={u1}] = {copula.calculate_regression_U2_on_U1(u1):.6f}")
-print(f"E[U1|U2={u2}] = {copula.calculate_regression_U1_on_U2(u2):.6f}")
+print(f"E[U2|U1={u1}] = {copula._calculate_regression(1, 0, u1):.6f}")
+print(f"E[U1|U2={u2}] = {copula._calculate_regression(0, 1, u2):.6f}")
 
 # Association measures
-print(f"CCRAM X1->X2: {copula.calculate_CCRAM_X1_X2():.6f}")
-print(f"SCCRAM X1->X2: {copula.calculate_SCCRAM_X1_X2():.6f}")
+print(f"CCRAM 0->1: {copula.calculate_CCRAM(0, 1):.6f}")
+print(f"SCCRAM 0->1: {copula.calculate_CCRAM(0, 1, is_scaled=True):.6f}")
+
+# Category predictions
+print("\nCategory Prediction Mapping:")
+print(copula.get_category_predictions(0, 1))
 ```
 
-### Example Output: 
+### Quick-Start Example Output 
 
-```console
+```text
 Shape of probability matrix P: (5, 3)
-Marginal CDF X1: [0.    0.25  0.375 0.625 0.75  1.   ]
-Marginal CDF X2: [0.   0.25 0.5  1.  ]
+Marginal CDF axis 0: [0.    0.25  0.375 0.625 0.75  1.   ]
+Marginal CDF axis 1: [0.   0.25 0.5  1.  ]
 E[U2|U1=0.5] = 0.125000
 E[U1|U2=0.5] = 0.500000
-CCRAM X1->X2: 0.843750
-SCCRAM X1->X2: 1.000000
+CCRAM 0->1: 0.843750
+SCCRAM 0->1: 1.000000
+
+Category Predictions: X → Y
+----------------------------------------
+   X Category  Predicted Y Category
+0           0                     2
+1           1                     1
+2           2                     0
+3           3                     1
+4           4                     2
 ```

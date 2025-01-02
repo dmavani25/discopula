@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 
 class GenericCheckerboardCopula:
     @classmethod
@@ -35,7 +36,7 @@ class GenericCheckerboardCopula:
         """
         if not isinstance(contingency_table, np.ndarray):
             contingency_table = np.array(contingency_table)
-            
+        print(contingency_table.ndim)
         if contingency_table.ndim != 2:
             raise ValueError("Contingency table must be 2-dimensional")
             
@@ -192,91 +193,52 @@ class GenericCheckerboardCopula:
             return 1.0 if ccram >= 1e-10 else 0.0
         return ccram / (12 * sigma_sq_S)
 
-    def predict_category(self, source_category, from_axis, to_axis):
-        """Predict category for target axis given source category.
+    def get_category_predictions(
+        self,
+        from_axis: int,
+        to_axis: int, 
+        from_axis_name: str = "X",
+        to_axis_name: str = "Y"
+    ) -> pd.DataFrame:
+        """Get direct category prediction mapping.
         
         Parameters
         ----------
-        source_category : int
-            Category index of source axis (0-based)
         from_axis : int
             Source axis index
         to_axis : int
             Target axis index
-                
-        Returns
-        -------
-        int
-            Predicted category index for target axis (0-based)
-        """
-        # Get corresponding u value for source category
-        u_source = self.marginal_cdfs[from_axis][source_category + 1]
-        
-        # Get regression value
-        u_target = self._calculate_regression(
-            target_axis=to_axis,
-            given_axis=from_axis,
-            given_value=u_source
-        )
-        
-        # Get predicted category
-        return self._get_predicted_category(u_target, self.marginal_cdfs[to_axis])
-
-    def predict_category_batched(self, source_categories, from_axis, to_axis):
-        """Vectorized prediction of target categories.
-        
-        Parameters
-        ----------
-        source_categories : numpy.ndarray
-            Array of source category indices (0-based)
-        from_axis : int
-            Source axis index
-        to_axis : int
-            Target axis index
+        from_axis_name : str
+            Name of source variable
+        to_axis_name : str
+            Name of target variable
             
         Returns
         -------
-        numpy.ndarray
-            Array of predicted category indices for target axis
+        pd.DataFrame
+            Mapping table showing predicted categories
         """
-        # Convert input to numpy array
-        source_categories = np.asarray(source_categories)
+        # Use internal probability matrix dimensions
+        source_dim = self.P.shape[from_axis]
+        source_categories = np.arange(source_dim)
         
-        # Get corresponding u values for all source categories
-        u_source_values = self.marginal_cdfs[from_axis][source_categories + 1]
-        
-        # Compute regression values for all u values
-        u_target_values = self._calculate_regression_batched(
-            target_axis=to_axis,
-            given_axis=from_axis,
-            given_values=u_source_values
+        predictions = self._predict_category_batched(
+            source_categories,
+            from_axis=from_axis,
+            to_axis=to_axis
         )
         
-        # Get predicted categories
-        return self._get_predicted_category_batched(
-            u_target_values, 
-            self.marginal_cdfs[to_axis]
-        )
+        mapping = pd.DataFrame({
+            f'{from_axis_name} Category': source_categories,
+            f'Predicted {to_axis_name} Category': predictions
+        })
+        
+        print(f"\nCategory Predictions: {from_axis_name} → {to_axis_name}")
+        print("-" * 40)
+        return mapping
     
     def _calculate_conditional_pmf(self, target_axis, given_axes):
-        """Calculate conditional probability mass function.
-        
-        Parameters
-        ----------
-        target_axis : int
-            The axis for which to calculate conditional probabilities
-        given_axes : list of int
-            The axes that are being conditioned on
-            
-        Returns
-        -------
-        numpy.ndarray
-            Array containing conditional probabilities P(target|given)
-            
-        Notes
-        -----
-        Calculates P(target|given) = P(target,given) / P(given)
-        """
+        """Helper Function: Calculate conditional PMF P(target|given)."""
         if not isinstance(given_axes, (list, tuple)):
             given_axes = [given_axes]
             
@@ -315,22 +277,7 @@ class GenericCheckerboardCopula:
         return conditional_prob
     
     def _calculate_regression(self, target_axis, given_axis, given_value):
-        """Calculate regression E[target|given=value].
-        
-        Parameters
-        ----------
-        target_axis : int
-            Axis for which to calculate expected value
-        given_axis : int  
-            Conditioning axis
-        given_value : float
-            Value between 0 and 1 for conditioning variable
-
-        Returns
-        -------
-        float
-            Conditional expectation E[target|given=value]
-        """
+        """Helper Function: Calculate regression E[target|given=value]."""
         # Get breakpoints from marginal CDF
         breakpoints = self.marginal_cdfs[given_axis][1:-1]
         
@@ -355,22 +302,7 @@ class GenericCheckerboardCopula:
         return regression_value
 
     def _calculate_regression_batched(self, target_axis, given_axis, given_values):
-        """Vectorized calculation of regression for multiple values.
-        
-        Parameters
-        ----------
-        target_axis : int
-            Axis for which to calculate expected values
-        given_axis : int
-            Conditioning axis  
-        given_values : numpy.ndarray
-            Array of values between 0 and 1
-
-        Returns
-        -------
-        numpy.ndarray
-            Array of regression values with same shape as given_values
-        """
+        """Helper Function: Vectorized calculation of regression for multiple values."""
         given_values = np.asarray(given_values)
         results = np.zeros_like(given_values, dtype=float)
         
@@ -400,45 +332,12 @@ class GenericCheckerboardCopula:
         return results
     
     def _calculate_scores(self, marginal_cdf):
-        """Calculate checkerboard scores from marginal CDF."""
+        """Helper Function: Calculate checkerboard scores from marginal CDF."""
         return [(marginal_cdf[j-1] + marginal_cdf[j])/2 
                 for j in range(1, len(marginal_cdf))]
     
     def _lambda_function(self, u, ul, uj):
-        """Calculate lambda function for checkerboard copula.
-        
-        Computes a piecewise linear function that maps input values to [0,1] based on
-        lower and upper bounds. This lambda function is used in constructing the
-        checkerboard copula.
-
-        Parameters
-        ----------
-        u : float
-            Input value to be transformed
-        ul : float 
-            Lower bound of the interval
-        uj : float
-            Upper bound of the interval
-
-        Returns
-        -------
-        float
-            Lambda value in [0,1], calculated as:
-            - 0.0 if u <= ul
-            - 1.0 if u >= uj
-            - (u - ul)/(uj - ul) otherwise
-
-        Notes
-        -----
-        This is a piecewise linear function that:
-        1. Returns 0 for inputs below or at the lower bound
-        2. Returns 1 for inputs above or at the upper bound
-        3. Linearly interpolates between bounds for inputs in between
-
-        See Also
-        --------
-        calculate_checkerboard_copula : Uses this lambda function for copula construction
-        """
+        """Helper Function: Calculate lambda function for checkerboard copula."""
         if u <= ul:
             return 0.0
         elif u >= uj:
@@ -447,52 +346,15 @@ class GenericCheckerboardCopula:
             return (u - ul) / (uj - ul)
         
     def _get_predicted_category(self, regression_value, marginal_cdf):
-        """Get predicted category based on regression value.
-        
-        Parameters
-        ----------
-        regression_value : float
-            Value from regression function (between 0 and 1)
-        marginal_cdf : array-like 
-            Marginal CDF values defining category boundaries
-            
-        Returns
-        -------
-        int
-            Index of predicted category (0-based)
-        """
+        """Helper Function: Get predicted category based on regression value."""
         return np.searchsorted(marginal_cdf[1:-1], regression_value, side='left')
 
     def _get_predicted_category_batched(self, regression_values, marginal_cdf):
-        """Get predicted categories for multiple regression values.
-        
-        Parameters
-        ----------
-        regression_values : numpy.ndarray
-            Array of regression values to predict categories for
-        marginal_cdf : array-like
-            Marginal CDF values defining category boundaries
-            
-        Returns
-        -------
-        numpy.ndarray
-            Array of predicted category indices (0-based)
-        """
+        """Helper Function: Get predicted categories for multiple regression values."""
         return np.searchsorted(marginal_cdf[1:-1], regression_values, side='left')
     
     def _calculate_sigma_sq_S(self, axis):
-        """Calculate variance of score S for given axis.
-        
-        Parameters
-        ----------
-        axis : int
-            Axis for which to calculate score variance
-            
-        Returns
-        -------
-        float
-            Variance of score S for given axis
-        """
+        """Helper Function: Calculate variance of score S for given axis."""
         # Get consecutive CDF values
         u_prev = self.marginal_cdfs[axis][:-1]
         u_next = self.marginal_cdfs[axis][1:]
@@ -509,18 +371,7 @@ class GenericCheckerboardCopula:
         return sigma_sq_S
 
     def _calculate_sigma_sq_S_vectorized(self, axis):
-        """Calculate variance of score S using vectorized operations.
-        
-        Parameters
-        ----------
-        axis : int
-            Axis for which to calculate score variance
-            
-        Returns
-        -------
-        float
-            Variance of score S for given axis
-        """
+        """Helper Function: Calculate variance of score S using vectorized operations."""
         # Get consecutive CDF values
         u_prev = self.marginal_cdfs[axis][:-1]
         u_next = self.marginal_cdfs[axis][1:]
@@ -531,3 +382,39 @@ class GenericCheckerboardCopula:
         # Calculate sigma_sq_S
         sigma_sq_S = np.sum(terms) / 4.0
         return sigma_sq_S
+    
+    def _predict_category(self, source_category, from_axis, to_axis):
+        """Helper Function: Predict category for target axis given source category."""
+        # Get corresponding u value for source category
+        u_source = self.marginal_cdfs[from_axis][source_category + 1]
+        
+        # Get regression value
+        u_target = self._calculate_regression(
+            target_axis=to_axis,
+            given_axis=from_axis,
+            given_value=u_source
+        )
+        
+        # Get predicted category
+        return self._get_predicted_category(u_target, self.marginal_cdfs[to_axis])
+
+    def _predict_category_batched(self, source_categories, from_axis, to_axis):
+        """Helper Function: Vectorized prediction of target categories."""
+        # Convert input to numpy array
+        source_categories = np.asarray(source_categories)
+        
+        # Get corresponding u values for all source categories
+        u_source_values = self.marginal_cdfs[from_axis][source_categories + 1]
+        
+        # Compute regression values for all u values
+        u_target_values = self._calculate_regression_batched(
+            target_axis=to_axis,
+            given_axis=from_axis,
+            given_values=u_source_values
+        )
+        
+        # Get predicted categories
+        return self._get_predicted_category_batched(
+            u_target_values, 
+            self.marginal_cdfs[to_axis]
+        )
