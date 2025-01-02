@@ -36,7 +36,7 @@ class GenericCheckerboardCopula:
         """
         if not isinstance(contingency_table, np.ndarray):
             contingency_table = np.array(contingency_table)
-        print(contingency_table.ndim)
+
         if contingency_table.ndim != 2:
             raise ValueError("Contingency table must be 2-dimensional")
             
