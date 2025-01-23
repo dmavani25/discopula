@@ -36,7 +36,6 @@ def test_from_contingency_table_valid(contingency_table):
 @pytest.mark.parametrize("invalid_table,error_msg", [
     (np.array([[1, 2], [3, -1]]), "Contingency table cannot contain negative values"),
     (np.array([[0, 0], [0, 0]]), "Contingency table cannot be all zeros"),
-    (np.array([1, 2, 3]), "Contingency table must be 2-dimensional")
 ])
 def test_invalid_contingency_tables(invalid_table, error_msg):
     """Test error handling for invalid contingency tables."""
@@ -183,7 +182,7 @@ def test_get_category_predictions_basic(generic_copula):
     # Check predictions match individual predictions
     for idx, row in df.iterrows():
         expected = generic_copula._predict_category(idx, 0, 1)
-        assert row['Predicted Y Category'] == expected
+        assert row['Predicted Y Category'] == expected + 1
 
 def test_get_category_predictions_custom_names(generic_copula):
     """Test get_category_predictions with custom axis names."""
@@ -197,16 +196,16 @@ def test_get_category_predictions_custom_names(generic_copula):
 def test_get_category_predictions_known_values(generic_copula):
     """Test get_category_predictions against known mappings."""
     expected_predictions = {
-        0: 2,
-        1: 1,
-        2: 0, 
+        1: 3,
+        2: 2,
         3: 1, 
-        4: 2 
+        4: 2, 
+        5: 3 
     }
     
     df = generic_copula.get_category_predictions(0, 1)
     for source_cat, predicted_cat in expected_predictions.items():
-        assert df.iloc[source_cat]['Predicted Y Category'] == predicted_cat
+        assert df.iloc[source_cat - 1]['Predicted Y Category'] == predicted_cat
 
 def test_get_category_predictions_invalid_axes(generic_copula):
     """Test get_category_predictions with invalid axes."""
@@ -214,3 +213,38 @@ def test_get_category_predictions_invalid_axes(generic_copula):
         generic_copula.get_category_predictions(2, 1)  # Invalid from_axis
     with pytest.raises(IndexError):
         generic_copula.get_category_predictions(0, 2)  # Invalid to_axis
+        
+def test_calculate_scores_valid(generic_copula):
+    """Test valid calculation of scores."""
+    scores_0 = generic_copula.calculate_scores(0)
+    scores_1 = generic_copula.calculate_scores(1)
+
+    # Check exact expected values
+    expected_scores_0 = np.array([0.125, 0.3125, 0.5, 0.6875, 0.875], dtype=np.float64)
+    expected_scores_1 = np.array([0.125, 0.375, 0.75], dtype=np.float64)
+    
+    np.testing.assert_array_almost_equal(scores_0, expected_scores_0)
+    np.testing.assert_array_almost_equal(scores_1, expected_scores_1)
+    
+def test_calculate_scores_invalid_axis(generic_copula):
+    """Test invalid axis handling for score calculation."""
+    with pytest.raises(KeyError):
+        generic_copula.calculate_scores(2)  # Invalid axis index
+
+def test_calculate_variance_S_valid(generic_copula):
+    """Test valid calculation of score variance."""
+    var_0 = generic_copula.calculate_variance_S(0)
+    var_1 = generic_copula.calculate_variance_S(1)
+    print(var_0, var_1)
+    # Check return type
+    assert isinstance(var_0, (float, np.float64))
+    assert isinstance(var_1, (float, np.float64))
+    
+    # Variance should be non-negative
+    assert var_0 >= 0
+    assert var_1 >= 0
+
+def test_calculate_variance_S_invalid_axis(generic_copula):
+    """Test invalid axis handling for variance calculation."""
+    with pytest.raises(KeyError):
+        generic_copula.calculate_variance_S(2)  # Invalid axis index

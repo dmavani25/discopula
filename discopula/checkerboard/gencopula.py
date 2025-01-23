@@ -36,9 +36,6 @@ class GenericCheckerboardCopula:
         """
         if not isinstance(contingency_table, np.ndarray):
             contingency_table = np.array(contingency_table)
-
-        if contingency_table.ndim != 2:
-            raise ValueError("Contingency table must be 2-dimensional")
             
         if np.any(contingency_table < 0):
             raise ValueError("Contingency table cannot contain negative values")
@@ -54,9 +51,6 @@ class GenericCheckerboardCopula:
         """Initialize with joint probability matrix P."""
         if not isinstance(P, np.ndarray):
             P = np.array(P)
-            
-        if P.ndim != 2:
-            raise ValueError("P must be 2-dimensional")
             
         if np.any(P < 0) or np.any(P > 1):
             raise ValueError("P must contain values in [0,1]")
@@ -229,13 +223,43 @@ class GenericCheckerboardCopula:
         )
         
         mapping = pd.DataFrame({
-            f'{from_axis_name} Category': source_categories,
-            f'Predicted {to_axis_name} Category': predictions
+            f'{from_axis_name} Category': source_categories + 1,
+            f'Predicted {to_axis_name} Category': predictions + 1
         })
         
         print(f"\nCategory Predictions: {from_axis_name} → {to_axis_name}")
         print("-" * 40)
         return mapping
+    
+    def calculate_scores(self, axis):
+        """Calculate checkerboard scores for the specified axis.
+        
+        Parameters
+        ----------
+        axis : int
+            Index of the axis for which to calculate scores
+            
+        Returns
+        -------
+        numpy.ndarray
+            Array containing checkerboard scores for the given axis
+        """
+        return self.scores[axis]
+    
+    def calculate_variance_S(self, axis):
+        """Calculate the variance of score S for the specified axis.
+        
+        Parameters
+        ----------
+        axis : int
+            Index of the axis for which to calculate variance
+            
+        Returns
+        -------
+        float
+            Variance of score S for the given axis
+        """
+        return self._calculate_sigma_sq_S(axis)
     
     def _calculate_conditional_pmf(self, target_axis, given_axes):
         """Helper Function: Calculate conditional PMF P(target|given)."""
