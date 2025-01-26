@@ -479,8 +479,7 @@ def permutation_test_ccram(contingency_table: np.ndarray,
             for batch_cases in cases:
                 table = gen_case_form_to_contingency(
                     batch_cases, 
-                    shape=contingency_table.shape,
-                    axis_order=resampling_axes
+                    shape=contingency_table.shape
                 )
                 copula = GenericCheckerboardCopula.from_contingency_table(table)
                 value = copula.calculate_CCRAM_vectorized(from_axis, to_axis, is_scaled)
@@ -489,8 +488,7 @@ def permutation_test_ccram(contingency_table: np.ndarray,
         else:
             table = gen_case_form_to_contingency(
                 cases, 
-                shape=contingency_table.shape,
-                axis_order=resampling_axes
+                shape=contingency_table.shape
             )
             copula = GenericCheckerboardCopula.from_contingency_table(table)
             value = copula.calculate_CCRAM_vectorized(from_axis, to_axis, is_scaled)

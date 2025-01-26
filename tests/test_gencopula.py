@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 import pytest
 from discopula import GenericCheckerboardCopula
+from .test_utils import table_4d, cases_4d
 
 @pytest.fixture
 def generic_copula():
@@ -248,3 +249,82 @@ def test_calculate_variance_S_invalid_axis(generic_copula):
     """Test invalid axis handling for variance calculation."""
     with pytest.raises(KeyError):
         generic_copula.calculate_variance_S(2)  # Invalid axis index
+
+@pytest.fixture
+def expected_shape():
+    """Fixture providing expected shape for the copula."""
+    return (2, 3, 2, 6)
+
+def test_from_cases_creation(cases_4d, table_4d, expected_shape):
+    """Test creation of copula from cases data."""
+    cop = GenericCheckerboardCopula.from_cases(cases_4d, expected_shape)
+    assert cop.ndim == 4
+    assert cop.P.shape == expected_shape
+    assert np.all(cop.P >= 0)
+    assert np.isclose(cop.P.sum(), 1.0)
+    assert np.all(cop.contingency_table == table_4d)
+
+def test_from_cases_marginal_pdfs(cases_4d, expected_shape):
+    """Test marginal PDFs calculation from cases."""
+    cop = GenericCheckerboardCopula.from_cases(cases_4d, expected_shape)
+    
+    # Test marginal PDFs exist for each dimension
+    assert len(cop.marginal_pdfs) == 4
+    
+    # Test each marginal PDF sums to 1
+    for axis in range(4):
+        pdf = cop.marginal_pdfs[axis]
+        assert np.isclose(np.sum(pdf), 1.0)
+
+def test_from_cases_marginal_cdfs(cases_4d, expected_shape):
+    """Test marginal CDFs calculation from cases."""
+    cop = GenericCheckerboardCopula.from_cases(cases_4d, expected_shape)
+    
+    # Test CDFs exist for each dimension
+    assert len(cop.marginal_cdfs) == 4
+    
+    # Test CDF properties
+    for axis in range(4):
+        cdf = cop.marginal_cdfs[axis]
+        assert cdf[0] == 0  # CDF starts at 0
+        assert np.isclose(cdf[-1], 1.0)  # CDF ends at 1
+        assert np.all(np.diff(cdf) >= 0)  # CDF is monotonically increasing
+
+def test_from_cases_scores(cases_4d, expected_shape):
+    """Test scores calculation from cases."""
+    cop = GenericCheckerboardCopula.from_cases(cases_4d, expected_shape)
+    
+    # Test scores exist for each dimension
+    for axis in range(4):
+        scores = cop.calculate_scores(axis)
+        assert len(scores) == expected_shape[axis]
+
+def test_from_cases_variance(cases_4d, expected_shape):
+    """Test variance calculation from cases."""
+    cop = GenericCheckerboardCopula.from_cases(cases_4d, expected_shape)
+    
+    # Test variance for the last dimension
+    variance = cop.calculate_variance_S(3)
+    assert isinstance(variance, (float, np.float64))
+    assert variance >= 0
+
+def test_from_cases_invalid_input():
+    """Test error handling for invalid inputs."""
+    invalid_cases = np.array([[0,1], [1,2]])  # Wrong number of dimensions
+    invalid_shape = (2, 2)  # Wrong shape specification
+    
+    with pytest.raises(ValueError):
+        GenericCheckerboardCopula.from_cases(invalid_cases, (2,2,2,2))
+    
+    with pytest.raises(ValueError):
+        GenericCheckerboardCopula.from_cases(cases_4d, invalid_shape)
+
+def test_from_cases_contingency_table(cases_4d, expected_shape):
+    """Test contingency table properties from cases."""
+    cop = GenericCheckerboardCopula.from_cases(cases_4d, expected_shape)
+    
+    # Test contingency table properties
+    table = cop.contingency_table
+    assert table.shape == expected_shape
+    assert np.all(table >= 0)  # Non-negative counts
+    assert np.sum(table) == len(cases_4d)  # Sum equals number of cases

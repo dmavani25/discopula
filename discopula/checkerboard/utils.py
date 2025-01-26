@@ -110,12 +110,27 @@ def case_form_to_contingency(cases, n_rows, n_cols):
         return table
 
 def gen_contingency_to_case_form(contingency_table: np.ndarray) -> np.ndarray:
-    """Convert contingency table to case form."""
+    """Convert N-dimensional contingency table to case form.
+    
+    Parameters
+    ----------
+    contingency_table : np.ndarray
+        N-dimensional contingency table
+        
+    Returns
+    -------
+    np.ndarray
+        Array of cases where each row represents coordinates
+    """
+    # Get indices of non-zero elements
     indices = np.nonzero(contingency_table)
     counts = contingency_table[indices]
+    
+    # Create cases list
     cases = []
-    for i, j, count in zip(*indices, counts):
-        cases.extend([[i, j]] * int(count))
+    for idx, count in zip(zip(*indices), counts):
+        cases.extend([list(idx)] * int(count))
+    
     return np.array(cases)
 
 def gen_case_form_to_contingency(cases: np.ndarray, 

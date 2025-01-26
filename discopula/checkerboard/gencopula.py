@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+from .utils import gen_case_form_to_contingency
 
 class GenericCheckerboardCopula:
     @classmethod
@@ -46,6 +47,52 @@ class GenericCheckerboardCopula:
             
         P = contingency_table / total_count
         return cls(P)
+    
+    @classmethod
+    def from_cases(cls, cases, shape):
+        """
+        Create a CheckerboardCopula instance from a list of cases.
+
+        Parameters
+        ----------
+        cases : numpy.ndarray
+            A 2D array where each row represents a case.
+        shape : tuple
+            Shape of the contingency table to create.
+
+        Returns
+        -------
+        CheckerboardCopula
+            A new instance initialized with the probability matrix.
+
+        Raises
+        ------
+        ValueError
+            If the input cases are not 2-dimensional.
+            If the shape tuple does not match the number of variables.
+
+        Examples
+        --------
+        >>> cases = np.array([
+            [0, 0, 2],
+            [0, 1, 0],
+            [2, 0, 0],
+            [0, 1, 0],
+            [0, 0, 2]
+        ])
+        >>> copula = CheckerboardCopula.from_cases(cases, (3, 2, 3))
+        """
+        if not isinstance(cases, np.ndarray):
+            cases = np.array(cases)
+            
+        if cases.ndim != 2:
+            raise ValueError("Cases must be a 2D array")
+            
+        if cases.shape[1] != len(shape):
+            raise ValueError("Shape tuple must match number of variables")
+            
+        contingency_table = gen_case_form_to_contingency(cases, shape)
+        return cls.from_contingency_table(contingency_table)
     
     def __init__(self, P):
         """Initialize with joint probability matrix P."""

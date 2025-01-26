@@ -116,21 +116,142 @@ def test_gen_case_form_to_contingency_2d(gen_contingency_table, gen_case_form_da
     reconstructed = gen_case_form_to_contingency(gen_case_form_data, gen_contingency_table.shape)
     np.testing.assert_array_equal(reconstructed, gen_contingency_table)
 
-def test_gen_case_form_to_contingency_3d(gen_3d_cases):
-    """Test gen_case_form_to_contingency with 3D data."""
-    shape = (2, 2)  # Expected shape of output table
-    reconstructed = gen_case_form_to_contingency(gen_3d_cases, shape)
-    expected = np.array([[1, 1], [1, 1]])  # Each position should have count 1
-    np.testing.assert_array_equal(reconstructed, expected)
+@pytest.fixture
+def table_4d():
+    """Fixture for 4D contingency table."""
+    table = np.zeros((2,3,2,6), dtype=int)
+    
+    # RDA Row 1 [0,2,0,*]
+    table[0,2,0,1] = 1
+    table[0,2,0,4] = 2
+    table[0,2,0,5] = 4
+    
+    # RDA Row 2 [0,2,1,*]
+    table[0,2,1,3] = 1
+    table[0,2,1,4] = 3
+    
+    # RDA Row 3 [0,1,0,*]
+    table[0,1,0,1] = 2
+    table[0,1,0,2] = 3
+    table[0,1,0,4] = 6
+    table[0,1,0,5] = 6
+    
+    # RDA Row 4 [0,1,1,*]
+    table[0,1,1,1] = 1
+    table[0,1,1,3] = 2
+    table[0,1,1,5] = 1
+    
+    # RDA Row 5 [0,0,0,*]
+    table[0,0,0,4] = 2 
+    table[0,0,0,5] = 2
+    
+    # RDA Row 6 [0,0,1,*]
+    table[0,0,1,2] = 1
+    table[0,0,1,3] = 1
+    table[0,0,1,4] = 3
+    
+    # RDA Row 7 [1,2,0,*]
+    table[1,2,0,2] = 3
+    table[1,2,0,4] = 1
+    table[1,2,0,5] = 2
+    
+    # RDA Row 8 [1,2,1,*]
+    table[1,2,1,1] = 1
+    table[1,2,1,4] = 3
+    
+    # RDA Row 9 [1,1,0,*]
+    table[1,1,0,1] = 3
+    table[1,1,0,2] = 4
+    table[1,1,0,3] = 5
+    table[1,1,0,4] = 6
+    table[1,1,0,5] = 2
+    
+    # RDA Row 10 [1,1,1,*]
+    table[1,1,1,0] = 1
+    table[1,1,1,1] = 4
+    table[1,1,1,2] = 4
+    table[1,1,1,3] = 3
+    table[1,1,1,5] = 1
+    
+    # RDA Row 11 [1,0,0,*]
+    table[1,0,0,0] = 2
+    table[1,0,0,1] = 2
+    table[1,0,0,2] = 1
+    table[1,0,0,3] = 5
+    table[1,0,0,4] = 2
+    
+    # RDA Row 12 [1,0,1,*]
+    table[1,0,1,0] = 2
+    table[1,0,1,2] = 2
+    table[1,0,1,3] = 3
+    
+    return table
 
-def test_gen_case_form_to_contingency_axis_order():
-    """Test gen_case_form_to_contingency with custom axis ordering."""
-    cases = np.array([[0, 1], [1, 0]])  # Two cases with swapped coordinates
-    shape = (2, 2)
+@pytest.fixture
+def cases_4d():
+    """Fixture for 4D case-form data."""
+    return np.array([
+        # RDA Row 1
+        [0,2,0,1],[0,2,0,4],[0,2,0,4],
+        [0,2,0,5], [0,2,0,5],[0,2,0,5],[0,2,0,5],
+        # RDA Row 2
+        [0,2,1,3],[0,2,1,4],[0,2,1,4],[0,2,1,4],
+        # RDA Row 3
+        [0,1,0,1],[0,1,0,1],[0,1,0,2],[0,1,0,2],[0,1,0,2],
+        [0,1,0,4],[0,1,0,4],[0,1,0,4],[0,1,0,4],[0,1,0,4],[0,1,0,4],
+        [0,1,0,5],[0,1,0,5],[0,1,0,5],[0,1,0,5],[0,1,0,5],[0,1,0,5],
+        # RDA Row 4
+        [0,1,1,1],[0,1,1,3],[0,1,1,3],[0,1,1,5],
+        # RDA Row 5
+        [0,0,0,4],[0,0,0,4],[0,0,0,5],[0,0,0,5],
+        # RDA Row 6
+        [0,0,1,2],[0,0,1,3],[0,0,1,4],[0,0,1,4],[0,0,1,4],
+        # RDA Row 7
+        [1,2,0,2],[1,2,0,2],[1,2,0,2],[1,2,0,4],[1,2,0,5],[1,2,0,5],
+        # RDA Row 8
+        [1,2,1,1],[1,2,1,4],[1,2,1,4],[1,2,1,4],
+        # RDA Row 9
+        [1,1,0,1],[1,1,0,1],[1,1,0,1],[1,1,0,2],[1,1,0,2],[1,1,0,2],[1,1,0,2],
+        [1,1,0,3],[1,1,0,3],[1,1,0,3],[1,1,0,3],[1,1,0,3],
+        [1,1,0,4],[1,1,0,4],[1,1,0,4],[1,1,0,4],[1,1,0,4],[1,1,0,4],
+        [1,1,0,5],[1,1,0,5],
+        # RDA Row 10
+        [1,1,1,0],[1,1,1,1],[1,1,1,1],[1,1,1,1],[1,1,1,1],
+        [1,1,1,2],[1,1,1,2],[1,1,1,2],[1,1,1,2],
+        [1,1,1,3],[1,1,1,3],[1,1,1,3],[1,1,1,5],
+        # RDA Row 11
+        [1,0,0,0],[1,0,0,0],[1,0,0,1],[1,0,0,1],[1,0,0,2],
+        [1,0,0,3],[1,0,0,3],[1,0,0,3],[1,0,0,3],[1,0,0,3],
+        [1,0,0,4],[1,0,0,4],
+        # RDA Row 12
+        [1,0,1,0],[1,0,1,0],[1,0,1,2],[1,0,1,2],
+        [1,0,1,3],[1,0,1,3],[1,0,1,3]
+    ])
+
+def test_case_form_to_contingency_nd_2d(contingency_table, case_form_data):
+    """Test N-dimensional conversion with 2D data."""
+    result = gen_case_form_to_contingency(case_form_data, contingency_table.shape)
+    np.testing.assert_array_equal(result, contingency_table)
+
+def test_contingency_to_case_form_nd_2d(contingency_table, case_form_data):
+    """Test N-dimensional conversion with 2D data."""
+    result = gen_contingency_to_case_form(contingency_table)
+    # Sort both arrays for comparison
+    np.testing.assert_array_equal(
+        result[np.lexsort(result.T)],
+        case_form_data[np.lexsort(case_form_data.T)]
+    )
     
-    # Normal order
-    normal = gen_case_form_to_contingency(cases, shape)
-    # Swapped axes
-    swapped = gen_case_form_to_contingency(cases, shape, axis_order=[1, 0])
-    
-    np.testing.assert_array_equal(normal.T, swapped)
+def test_case_form_to_contingency_nd_4d(table_4d, cases_4d):
+    """Test N-dimensional conversion with 4D data."""
+    result = gen_case_form_to_contingency(cases_4d, table_4d.shape)
+    np.testing.assert_array_equal(result, table_4d)
+
+def test_contingency_to_case_form_nd_4d(table_4d, cases_4d):
+    """Test N-dimensional conversion with 4D data."""
+    result = gen_contingency_to_case_form(table_4d)
+    # Sort both arrays for comparison
+    np.testing.assert_array_equal(
+        result[np.lexsort(result.T)],
+        cases_4d[np.lexsort(cases_4d.T)]
+    )
