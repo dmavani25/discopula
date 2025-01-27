@@ -181,7 +181,7 @@ class GenericCheckerboardCopula:
         joint_prob = np.prod(mesh, axis=0)
         
         # Calculate regression values for each combination
-        idx_arrays = [range(self.P.shape[axis]) for axis in from_axes]
+        # idx_arrays = [range(self.P.shape[axis]) for axis in from_axes]
         weighted_expectation = 0.0
         
         for idx in np.ndindex(*[len(p) for p in probs]):
