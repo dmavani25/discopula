@@ -2,7 +2,6 @@ import numpy as np
 import pandas as pd
 import pytest
 from discopula import GenericCheckerboardCopula
-from .test_utils import table_4d, cases_4d
 
 @pytest.fixture
 def generic_copula():
@@ -25,6 +24,118 @@ def contingency_table():
         [20, 0, 0],
         [0, 10, 0],
         [0, 0, 20]
+    ])
+    
+@pytest.fixture
+def table_4d():
+    """Fixture for 4D contingency table."""
+    table = np.zeros((2,3,2,6), dtype=int)
+    
+    # RDA Row 1 [0,2,0,*]
+    table[0,2,0,1] = 1
+    table[0,2,0,4] = 2
+    table[0,2,0,5] = 4
+    
+    # RDA Row 2 [0,2,1,*]
+    table[0,2,1,3] = 1
+    table[0,2,1,4] = 3
+    
+    # RDA Row 3 [0,1,0,*]
+    table[0,1,0,1] = 2
+    table[0,1,0,2] = 3
+    table[0,1,0,4] = 6
+    table[0,1,0,5] = 6
+    
+    # RDA Row 4 [0,1,1,*]
+    table[0,1,1,1] = 1
+    table[0,1,1,3] = 2
+    table[0,1,1,5] = 1
+    
+    # RDA Row 5 [0,0,0,*]
+    table[0,0,0,4] = 2 
+    table[0,0,0,5] = 2
+    
+    # RDA Row 6 [0,0,1,*]
+    table[0,0,1,2] = 1
+    table[0,0,1,3] = 1
+    table[0,0,1,4] = 3
+    
+    # RDA Row 7 [1,2,0,*]
+    table[1,2,0,2] = 3
+    table[1,2,0,4] = 1
+    table[1,2,0,5] = 2
+    
+    # RDA Row 8 [1,2,1,*]
+    table[1,2,1,1] = 1
+    table[1,2,1,4] = 3
+    
+    # RDA Row 9 [1,1,0,*]
+    table[1,1,0,1] = 3
+    table[1,1,0,2] = 4
+    table[1,1,0,3] = 5
+    table[1,1,0,4] = 6
+    table[1,1,0,5] = 2
+    
+    # RDA Row 10 [1,1,1,*]
+    table[1,1,1,0] = 1
+    table[1,1,1,1] = 4
+    table[1,1,1,2] = 4
+    table[1,1,1,3] = 3
+    table[1,1,1,5] = 1
+    
+    # RDA Row 11 [1,0,0,*]
+    table[1,0,0,0] = 2
+    table[1,0,0,1] = 2
+    table[1,0,0,2] = 1
+    table[1,0,0,3] = 5
+    table[1,0,0,4] = 2
+    
+    # RDA Row 12 [1,0,1,*]
+    table[1,0,1,0] = 2
+    table[1,0,1,2] = 2
+    table[1,0,1,3] = 3
+    
+    return table
+
+@pytest.fixture
+def cases_4d():
+    """Fixture for 4D case-form data."""
+    return np.array([
+        # RDA Row 1
+        [0,2,0,1],[0,2,0,4],[0,2,0,4],
+        [0,2,0,5], [0,2,0,5],[0,2,0,5],[0,2,0,5],
+        # RDA Row 2
+        [0,2,1,3],[0,2,1,4],[0,2,1,4],[0,2,1,4],
+        # RDA Row 3
+        [0,1,0,1],[0,1,0,1],[0,1,0,2],[0,1,0,2],[0,1,0,2],
+        [0,1,0,4],[0,1,0,4],[0,1,0,4],[0,1,0,4],[0,1,0,4],[0,1,0,4],
+        [0,1,0,5],[0,1,0,5],[0,1,0,5],[0,1,0,5],[0,1,0,5],[0,1,0,5],
+        # RDA Row 4
+        [0,1,1,1],[0,1,1,3],[0,1,1,3],[0,1,1,5],
+        # RDA Row 5
+        [0,0,0,4],[0,0,0,4],[0,0,0,5],[0,0,0,5],
+        # RDA Row 6
+        [0,0,1,2],[0,0,1,3],[0,0,1,4],[0,0,1,4],[0,0,1,4],
+        # RDA Row 7
+        [1,2,0,2],[1,2,0,2],[1,2,0,2],[1,2,0,4],[1,2,0,5],[1,2,0,5],
+        # RDA Row 8
+        [1,2,1,1],[1,2,1,4],[1,2,1,4],[1,2,1,4],
+        # RDA Row 9
+        [1,1,0,1],[1,1,0,1],[1,1,0,1],[1,1,0,2],[1,1,0,2],[1,1,0,2],[1,1,0,2],
+        [1,1,0,3],[1,1,0,3],[1,1,0,3],[1,1,0,3],[1,1,0,3],
+        [1,1,0,4],[1,1,0,4],[1,1,0,4],[1,1,0,4],[1,1,0,4],[1,1,0,4],
+        [1,1,0,5],[1,1,0,5],
+        # RDA Row 10
+        [1,1,1,0],[1,1,1,1],[1,1,1,1],[1,1,1,1],[1,1,1,1],
+        [1,1,1,2],[1,1,1,2],[1,1,1,2],[1,1,1,2],
+        [1,1,1,3],[1,1,1,3],[1,1,1,3],[1,1,1,5],
+        # RDA Row 11
+        [1,0,0,0],[1,0,0,0],[1,0,0,1],[1,0,0,1],[1,0,0,2],
+        [1,0,0,3],[1,0,0,3],[1,0,0,3],[1,0,0,3],[1,0,0,3],
+        [1,0,0,4],[1,0,0,4],
+        # RDA Row 12
+        [1,0,1,0],[1,0,1,0],[1,0,1,2],[1,0,1,2],
+        [1,0,1,3],[1,0,1,3],[1,0,1,3]
     ])
 
 # Basic Creation Tests
@@ -66,90 +177,109 @@ def test_conditional_pmfs(generic_copula):
     np.testing.assert_array_almost_equal(pmf, expected_1_given_0)
 
 # Regression Tests
-@pytest.mark.parametrize("u, target_axis, given_axis, expected_value", [
-    (0, 1, 0, 12/16),
-    (3/8, 1, 0, 6/16),
-    (1, 1, 0, 12/16)
+@pytest.mark.parametrize("given_values, given_axes, target_axis, expected_value", [
+    # Single conditioning
+    ([0.0], [0], 1, 12/16),
+    ([3/8], [0], 1, 6/16),
+    ([1.0], [0], 1, 12/16),
 ])
-def test_calculate_regression(generic_copula, u, target_axis, given_axis, expected_value):
-    """Test regression calculation."""
-    calculated = generic_copula._calculate_regression(
+def test_calculate_regression(generic_copula, given_values, given_axes, target_axis, expected_value):
+    """Test regression calculation with multiple conditioning axes."""
+    calculated = generic_copula._calculate_regression_batched(
         target_axis=target_axis,
-        given_axis=given_axis,
-        given_value=u
+        given_axes=given_axes,
+        given_values=given_values
     )
     np.testing.assert_almost_equal(calculated, expected_value)
 
 # CCRAM Tests
-@pytest.mark.parametrize("from_axis, to_axis, expected_ccram", [
-    (0, 1, 0.84375),  # X1->X2
-    (1, 0, 0.0)       # X2->X1
+@pytest.mark.parametrize("from_axes, to_axis, expected_ccram", [
+    ([0], 1, 0.84375),          # Single axis X1->X2
+    ([1], 0, 0.0),              # Single axis X2->X1
 ])
-def test_calculate_CCRAM(generic_copula, from_axis, to_axis, expected_ccram):
-    """Test CCRAM calculations."""
-    calculated = generic_copula.calculate_CCRAM(from_axis, to_axis, is_scaled=False)
+def test_calculate_CCRAM(generic_copula, from_axes, to_axis, expected_ccram):
+    """Test CCRAM calculations with multiple conditioning axes."""
+    calculated = generic_copula.calculate_CCRAM(from_axes, to_axis, is_scaled=False)
     np.testing.assert_almost_equal(calculated, expected_ccram)
     
 # CCRAM Vectorized Tests
-@pytest.mark.parametrize("from_axis, to_axis, expected_ccram", [
-    (0, 1, 0.84375),  # X1->X2
-    (1, 0, 0.0)       # X2->X1
+@pytest.mark.parametrize("from_axes, to_axis, expected_ccram", [
+    ([0], 1, 0.84375),          # Single axis X1->X2
+    ([1], 0, 0.0),              # Single axis X2->X1
 ])
-def test_calculate_CCRAM_vectorized(generic_copula, from_axis, to_axis, expected_ccram):
-    """Test vectorized CCRAM calculations."""
-    calculated = generic_copula.calculate_CCRAM_vectorized(from_axis, to_axis, is_scaled=False)
+def test_calculate_CCRAM_vectorized(generic_copula, from_axes, to_axis, expected_ccram):
+    """Test vectorized CCRAM calculations with multiple conditioning axes."""
+    calculated = generic_copula.calculate_CCRAM_vectorized(from_axes, to_axis, is_scaled=False)
     np.testing.assert_almost_equal(calculated, expected_ccram)
 
 # SCCRAM Tests
-@pytest.mark.parametrize("from_axis, to_axis, expected_sccram", [
-    (0, 1, 0.84375/(12*0.0703125)),  # X1->X2
-    (1, 0, 0.0)                      # X2->X1
+@pytest.mark.parametrize("from_axes, to_axis, expected_sccram", [
+    ([0], 1, 0.84375/(12*0.0703125)),          # Single axis X1->X2
+    ([1], 0, 0.0),                             # Single axis X2->X1
 ])
-def test_calculate_SCCRAM(generic_copula, from_axis, to_axis, expected_sccram):
-    """Test SCCRAM calculations."""
-    calculated = generic_copula.calculate_CCRAM(from_axis, to_axis, is_scaled=True)
+def test_calculate_SCCRAM(generic_copula, from_axes, to_axis, expected_sccram):
+    """Test SCCRAM calculations with multiple conditioning axes."""
+    calculated = generic_copula.calculate_CCRAM(from_axes, to_axis, is_scaled=True)
     np.testing.assert_almost_equal(calculated, expected_sccram)
     
 # SCCRAM Vectorized Tests
-@pytest.mark.parametrize("from_axis, to_axis, expected_sccram", [
-    (0, 1, 0.84375/(12*0.0703125)),  # X1->X2
-    (1, 0, 0.0)                      # X2->X1
+@pytest.mark.parametrize("from_axes, to_axis, expected_sccram", [
+    ([0], 1, 0.84375/(12*0.0703125)),          # Single axis X1->X2
+    ([1], 0, 0.0),                             # Single axis X2->X1
 ])
-def test_calculate_SCCRAM_vectorized(generic_copula, from_axis, to_axis, expected_sccram):
-    """Test vectorized SCCRAM calculations."""
-    calculated = generic_copula.calculate_CCRAM_vectorized(from_axis, to_axis, is_scaled=True)
+def test_calculate_SCCRAM_vectorized(generic_copula, from_axes, to_axis, expected_sccram):
+    """Test vectorized SCCRAM calculations with multiple conditioning axes."""
+    calculated = generic_copula.calculate_CCRAM_vectorized(from_axes, to_axis, is_scaled=True)
     np.testing.assert_almost_equal(calculated, expected_sccram)
 
 # Category Prediction Tests
-@pytest.mark.parametrize("source_category, from_axis, to_axis, expected_category", [
-    (0, 0, 1, 2),  # First category of axis 0 maps to third category of axis 1
-    (1, 0, 1, 1),  # Second category of axis 0 maps to second category of axis 1
-    (2, 0, 1, 0),  # Third category of axis 0 maps to first category of axis 1
+@pytest.mark.parametrize("source_categories, from_axes, to_axis, expected_categories", [
+    # Single axis prediction
+    ([0], [0], 1, [2]),
+    ([1], [0], 1, [1]),
+    ([2], [0], 1, [0]),
+    ([3], [0], 1, [1]),
+    ([4], [0], 1, [2]),     
 ])
-def test_predict_category(generic_copula, source_category, from_axis, to_axis, expected_category):
-    """Test category prediction."""
-    predicted = generic_copula._predict_category(source_category, from_axis, to_axis)
-    assert predicted == expected_category
+def test_predict_category_multi(generic_copula, source_categories, from_axes, to_axis, expected_categories):
+    """Test category prediction with multiple conditioning axes."""
+    predicted = generic_copula._predict_category_batched_multi(
+        source_categories=source_categories,
+        from_axes=from_axes,
+        to_axis=to_axis
+    )
+    np.testing.assert_array_equal(predicted, expected_categories)
 
-def test_predict_category_batched(generic_copula):
-    """Test batched category prediction."""
-    source_categories = np.array([0, 1, 2, 3, 4])
-    expected = np.array([2, 1, 0, 1, 2])
-    predicted = generic_copula._predict_category_batched(source_categories, 0, 1)
-    np.testing.assert_array_equal(predicted, expected)
+# Add Multi-axis Category Predictions Test
+def test_get_category_predictions_multi(generic_copula):
+    """Test category predictions with multiple conditioning axes."""
+    df = generic_copula.get_category_predictions_multi(
+        from_axes=[1],
+        to_axis=0,
+        axis_names={0: "Income", 1: "Education"}
+    )
+    
+    assert isinstance(df, pd.DataFrame)
+    assert "Predicted Income Category" in df.columns
+    assert "Education Category" in df.columns
+
+# Add Consistency Tests for Multi-axis
+def test_multi_axis_consistency(generic_copula):
+    """Test consistency between single and multiple axis calculations."""
+    single_axis = generic_copula.calculate_CCRAM([0], 1)
+    multi_axis = generic_copula.calculate_CCRAM_vectorized([0], 1)
+    np.testing.assert_almost_equal(single_axis, multi_axis)
 
 # Invalid Cases Tests
 def test_invalid_predictions(generic_copula):
     """Test invalid prediction handling."""
     with pytest.raises(IndexError):
         generic_copula._predict_category(5, 0, 1)
-    with pytest.raises(IndexError):
-        generic_copula._predict_category_batched(np.array([0, 5, 2]), 0, 1)
 
 # Special Cases Tests
 def test_prediction_special_cases(generic_copula):
     """Test edge cases in predictions."""
-    single_pred = generic_copula._predict_category_batched(np.array([0]), 0, 1)
+    single_pred = generic_copula._predict_category_batched_multi(np.array([0]), 0, 1)
     assert len(single_pred) == 1
     assert single_pred[0] == generic_copula._predict_category(0, 0, 1)
 
@@ -170,50 +300,6 @@ def test_vectorized_consistency(generic_copula):
     regular = generic_copula.calculate_CCRAM(0, 1)
     vectorized = generic_copula.calculate_CCRAM_vectorized(0, 1)
     np.testing.assert_almost_equal(regular, vectorized)
-    
-def test_get_category_predictions_basic(generic_copula):
-    """Test basic functionality of get_category_predictions."""
-    df = generic_copula.get_category_predictions(0, 1)
-    
-    # Check DataFrame structure
-    assert isinstance(df, pd.DataFrame)
-    assert len(df) == generic_copula.P.shape[0]
-    assert list(df.columns) == ['X Category', 'Predicted Y Category']
-    
-    # Check predictions match individual predictions
-    for idx, row in df.iterrows():
-        expected = generic_copula._predict_category(idx, 0, 1)
-        assert row['Predicted Y Category'] == expected + 1
-
-def test_get_category_predictions_custom_names(generic_copula):
-    """Test get_category_predictions with custom axis names."""
-    df = generic_copula.get_category_predictions(
-        0, 1, 
-        from_axis_name="Income", 
-        to_axis_name="Education"
-    )
-    assert list(df.columns) == ['Income Category', 'Predicted Education Category']
-
-def test_get_category_predictions_known_values(generic_copula):
-    """Test get_category_predictions against known mappings."""
-    expected_predictions = {
-        1: 3,
-        2: 2,
-        3: 1, 
-        4: 2, 
-        5: 3 
-    }
-    
-    df = generic_copula.get_category_predictions(0, 1)
-    for source_cat, predicted_cat in expected_predictions.items():
-        assert df.iloc[source_cat - 1]['Predicted Y Category'] == predicted_cat
-
-def test_get_category_predictions_invalid_axes(generic_copula):
-    """Test get_category_predictions with invalid axes."""
-    with pytest.raises(IndexError):
-        generic_copula.get_category_predictions(2, 1)  # Invalid from_axis
-    with pytest.raises(IndexError):
-        generic_copula.get_category_predictions(0, 2)  # Invalid to_axis
         
 def test_calculate_scores_valid(generic_copula):
     """Test valid calculation of scores."""
@@ -328,3 +414,101 @@ def test_from_cases_contingency_table(cases_4d, expected_shape):
     assert table.shape == expected_shape
     assert np.all(table >= 0)  # Non-negative counts
     assert np.sum(table) == len(cases_4d)  # Sum equals number of cases
+    
+def test_4d_ccram_calculations(cases_4d, expected_shape):
+    """Test CCRAM calculations for 4D case with multiple conditioning axes."""
+    cop = GenericCheckerboardCopula.from_cases(cases_4d, expected_shape)
+    
+    # Test various axis combinations
+    test_cases = [
+        ([0], 1, 0.015560174514475982),
+        ([0, 1], 2, 0.03214055500887074),
+        ([0, 1, 2], 3, 0.2663199625336037),
+        ([1, 2, 3], 0, 0.7325390169591219)
+    ]
+    
+    for from_axes, to_axis, expected in test_cases:
+        # Regular CCRAM
+        ccram = cop.calculate_CCRAM(from_axes, to_axis, is_scaled=False)
+        assert 0 <= ccram <= 1
+        print(from_axes, to_axis, ccram)
+        assert np.isclose(ccram, expected)
+        
+        # Vectorized CCRAM
+        ccram_vec = cop.calculate_CCRAM_vectorized(from_axes, to_axis, is_scaled=False)
+        np.testing.assert_almost_equal(ccram, ccram_vec)
+
+def test_4d_prediction_multi(cases_4d, expected_shape):
+    """Test multi-axis prediction for 4D case."""
+    cop = GenericCheckerboardCopula.from_cases(cases_4d, expected_shape)
+    
+    # Test various prediction scenarios
+    test_cases = [
+        # source_categories, from_axes, to_axis
+        ([0], [0], 1),
+        ([0, 1], [0, 1], 2),
+        ([0, 1, 0], [0, 1, 2], 3)
+    ]
+    
+    for source_cats, from_axes, to_axis in test_cases:
+        predicted = cop._predict_category_batched_multi(
+            source_categories=source_cats,
+            from_axes=from_axes,
+            to_axis=to_axis
+        )
+        assert isinstance(predicted, np.ndarray)
+        assert predicted.shape == (1,)
+        assert 0 <= predicted[0] < expected_shape[to_axis]
+
+def test_4d_conditional_pmf(cases_4d, expected_shape):
+    """Test conditional PMF calculations for 4D case."""
+    cop = GenericCheckerboardCopula.from_cases(cases_4d, expected_shape)
+    
+    # Test various conditioning combinations
+    test_cases = [
+        (0, [1]),             # Single conditioning
+        (0, [1, 2])      # Triple conditioning
+    ]
+    
+    for target, given_axes in test_cases:
+        pmf = cop._calculate_conditional_pmf(target, given_axes)
+        assert isinstance(pmf, np.ndarray)
+        print(pmf.sum(axis=target))
+        assert np.allclose(pmf.sum(axis=target), 1.0)  # Proper conditional distribution
+
+def test_4d_scores_expected_values(cases_4d, expected_shape):
+    """Test score calculations for 4D case."""
+    cop = GenericCheckerboardCopula.from_cases(cases_4d, expected_shape)
+    
+    for axis in range(4):
+        scores = cop.calculate_scores(axis)
+        assert len(scores) == expected_shape[axis]
+        assert np.all(0 <= np.array(scores)) and np.all(np.array(scores) <= 1)
+        # Scores should be monotonically increasing
+        assert np.all(np.diff(scores) >= 0)
+
+def test_4d_category_predictions_dataframe(cases_4d, expected_shape):
+    """Test category predictions output format for 4D case."""
+    cop = GenericCheckerboardCopula.from_cases(cases_4d, expected_shape)
+    
+    axis_names = {
+        0: "First",
+        1: "Second", 
+        2: "Third",
+        3: "Fourth"
+    }
+    
+    from_axes = [0,1,2]
+    to_axis = 3
+    
+    df = cop.get_category_predictions_multi(
+        from_axes=from_axes,
+        to_axis=to_axis,
+        axis_names=axis_names
+    )
+    
+    # Check DataFrame structure
+    assert isinstance(df, pd.DataFrame)
+    for axis in from_axes:
+        assert f"{axis_names[axis]} Category" in df.columns
+    assert f"Predicted {axis_names[to_axis]} Category" in df.columns

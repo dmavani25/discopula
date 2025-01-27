@@ -160,123 +160,156 @@ class GenericCheckerboardCopula:
         scale = 1 / np.min(self.P[self.P > 0]) if np.any(self.P > 0) else 1
         return np.round(self.P * scale).astype(int)
     
-    def calculate_CCRAM(self, from_axis, to_axis, is_scaled=False):
-        """Calculate (Standardized) Checkerboard Copula Regression Association Measure.
+    def calculate_CCRAM(self, from_axes, to_axis, is_scaled=False):
+        """Calculate CCRAM with multiple conditioning axes.
         
         Parameters
         ----------
-        from_axis : int
-            Source axis for directional association
+        from_axes : list
+            List of source axes for directional association
         to_axis : int
             Target axis for directional association
         is_scaled : bool, optional
             Whether to return standardized measure (default: False)
-            
-        Returns
-        -------
-        float
-            (S)CCRAM value in [0,1] indicating strength of association
         """
+        if not isinstance(from_axes, (list, tuple)):
+            from_axes = [from_axes]
+            
+        # Create meshgrid of probabilities
+        probs = [self.marginal_pdfs[axis] for axis in from_axes]
+        mesh = np.meshgrid(*probs, indexing='ij')
+        joint_prob = np.prod(mesh, axis=0)
+        
+        # Calculate regression values for each combination
+        idx_arrays = [range(self.P.shape[axis]) for axis in from_axes]
         weighted_expectation = 0.0
-        for p_x, u in zip(self.marginal_pdfs[from_axis], 
-                        self.marginal_cdfs[from_axis][1:]):
-            regression_value = self._calculate_regression(
+        
+        for idx in np.ndindex(*[len(p) for p in probs]):
+            u_values = [self.marginal_cdfs[axis][i + 1] 
+                    for axis, i in zip(from_axes, idx)]
+            
+            regression_value = self._calculate_regression_batched(
                 target_axis=to_axis,
-                given_axis=from_axis, 
-                given_value=u
-            )
-            weighted_expectation += p_x * (regression_value - 0.5) ** 2
+                given_axes=from_axes,
+                given_values=u_values
+            )[0]
+            weighted_expectation += joint_prob[idx] * (regression_value - 0.5) ** 2
         
         ccram = 12 * weighted_expectation
         
         if not is_scaled:
             return ccram
             
-        # Calculate scaled version
         sigma_sq_S = self._calculate_sigma_sq_S(to_axis)
         if sigma_sq_S < 1e-10:
             return 1.0 if ccram >= 1e-10 else 0.0
         return ccram / (12 * sigma_sq_S)
 
-    def calculate_CCRAM_vectorized(self, from_axis, to_axis, is_scaled=False):
-        """Calculate (Standardized) CCRAM using vectorized operations.
+    def calculate_CCRAM_vectorized(self, from_axes, to_axis, is_scaled=False):
+        """Calculate CCRAM with multiple conditioning axes. (Vectorized)
         
         Parameters
         ----------
-        from_axis : int
-            Source axis for directional association
+        from_axes : list
+            List of source axes for directional association
         to_axis : int
             Target axis for directional association
         is_scaled : bool, optional
             Whether to return standardized measure (default: False)
-            
-        Returns
-        -------
-        float
-            (S)CCRAM value in [0,1] indicating strength of association
         """
+        if not isinstance(from_axes, (list, tuple)):
+            from_axes = [from_axes]
+            
+        # Create meshgrid of CDF values for each axis
+        cdf_values = [self.marginal_cdfs[axis][1:] for axis in from_axes]
+        mesh = np.meshgrid(*cdf_values, indexing='ij')
+        
+        # Calculate joint probabilities 
+        joint_probs = np.ones_like(mesh[0])
+        for idx, (axis, pdf) in enumerate(zip(from_axes, 
+                                            [self.marginal_pdfs[axis] for axis in from_axes])):
+            # Create reshape dimensions based on position in from_axes
+            reshape_dims = [1] * len(from_axes)
+            reshape_dims[idx] = -1
+            joint_probs = joint_probs * pdf.reshape(reshape_dims)
+        
+        # Flatten meshgrid for vectorized regression
+        given_values = [m.flatten() for m in mesh]
+        
         regression_values = self._calculate_regression_batched(
             target_axis=to_axis,
-            given_axis=from_axis,
-            given_values=self.marginal_cdfs[from_axis][1:]
+            given_axes=from_axes,
+            given_values=given_values
         )
+        
         weighted_expectation = np.sum(
-            self.marginal_pdfs[from_axis] * (regression_values - 0.5) ** 2
+            joint_probs.flatten() * (regression_values - 0.5) ** 2
         )
         ccram = 12 * weighted_expectation
         
         if not is_scaled:
             return ccram
             
-        # Calculate scaled version
         sigma_sq_S = self._calculate_sigma_sq_S_vectorized(to_axis)
         if sigma_sq_S < 1e-10:
             return 1.0 if ccram >= 1e-10 else 0.0
         return ccram / (12 * sigma_sq_S)
 
-    def get_category_predictions(
+    def get_category_predictions_multi(
         self,
-        from_axis: int,
-        to_axis: int, 
-        from_axis_name: str = "X",
-        to_axis_name: str = "Y"
+        from_axes: list,
+        to_axis: int,
+        axis_names: dict = None
     ) -> pd.DataFrame:
-        """Get direct category prediction mapping.
+        """Get category predictions with multiple conditioning axes.
         
         Parameters
         ----------
-        from_axis : int
-            Source axis index
+        from_axes : list
+            List of source axes for category prediction
         to_axis : int
-            Target axis index
-        from_axis_name : str
-            Name of source variable
-        to_axis_name : str
-            Name of target variable
+            Target axis for category prediction
+        axis_names : dict, optional
+            Dictionary mapping axis indices to names (default: None)
             
         Returns
         -------
-        pd.DataFrame
-            Mapping table showing predicted categories
-        """
-        # Use internal probability matrix dimensions
-        source_dim = self.P.shape[from_axis]
-        source_categories = np.arange(source_dim)
+        pandas.DataFrame
+            DataFrame containing source and predicted categories
         
-        predictions = self._predict_category_batched(
-            source_categories,
-            from_axis=from_axis,
+        Examples
+        --------
+        >>> copula.get_category_predictions_multi([0, 1], 2)
+        
+        Notes
+        -----
+        The DataFrame contains columns for each source axis category and the 
+        predicted target axis category. The categories are 1-indexed.
+        """
+        if axis_names is None:
+            axis_names = {i: f"X{i}" for i in range(self.ndim)}
+        
+        # Create meshgrid of source categories
+        source_dims = [self.P.shape[axis] for axis in from_axes]
+        source_categories = [np.arange(dim) for dim in source_dims]
+        mesh = np.meshgrid(*source_categories, indexing='ij')
+        
+        # Flatten for prediction
+        flat_categories = [m.flatten() for m in mesh]
+        
+        predictions = self._predict_category_batched_multi(
+            source_categories=flat_categories,
+            from_axes=from_axes,
             to_axis=to_axis
         )
         
-        mapping = pd.DataFrame({
-            f'{from_axis_name} Category': source_categories + 1,
-            f'Predicted {to_axis_name} Category': predictions + 1
-        })
+        # Create DataFrame
+        result = pd.DataFrame()
+        for axis, cats in zip(from_axes, flat_categories):
+            result[f'{axis_names[axis]} Category'] = cats + 1
+        result[f'Predicted {axis_names[to_axis]} Category'] = predictions + 1
         
-        print(f"\nCategory Predictions: {from_axis_name} → {to_axis_name}")
-        print("-" * 40)
-        return mapping
+        return result
     
     def calculate_scores(self, axis):
         """Calculate checkerboard scores for the specified axis.
@@ -312,7 +345,7 @@ class GenericCheckerboardCopula:
         """Helper Function: Calculate conditional PMF P(target|given)."""
         if not isinstance(given_axes, (list, tuple)):
             given_axes = [given_axes]
-            
+                
         # Key for storing in conditional_pmfs dict
         key = (target_axis, tuple(sorted(given_axes)))
         
@@ -332,71 +365,65 @@ class GenericCheckerboardCopula:
             joint_prob = self.P
             
         # Calculate marginal probability P(given)
-        marginal_prob = joint_prob.sum(axis=target_axis, keepdims=True)
+        # Move target axis to first position for proper summing
+        joint_prob_reordered = np.moveaxis(joint_prob, target_axis, 0)
+        marginal_prob = joint_prob_reordered.sum(axis=0, keepdims=True)
         
         # Calculate conditional probability P(target|given)
         with np.errstate(divide='ignore', invalid='ignore'):
             conditional_prob = np.divide(
-                joint_prob, 
+                joint_prob_reordered, 
                 marginal_prob,
-                out=np.zeros_like(joint_prob),
+                out=np.zeros_like(joint_prob_reordered),
                 where=marginal_prob!=0
             )
+        
+        # Move axis back to original position
+        conditional_prob = np.moveaxis(conditional_prob, 0, target_axis)
         
         # Cache and return result
         self.conditional_pmfs[key] = conditional_prob
         return conditional_prob
-    
-    def _calculate_regression(self, target_axis, given_axis, given_value):
-        """Helper Function: Calculate regression E[target|given=value]."""
-        # Get breakpoints from marginal CDF
-        breakpoints = self.marginal_cdfs[given_axis][1:-1]
+
+    def _calculate_regression_batched(self, target_axis, given_axes, given_values):
+        """Vectorized regression calculation for multiple conditioning axes."""
+        if not isinstance(given_axes, (list, tuple)):
+            given_axes = [given_axes]
+            given_values = [given_values]
         
-        # Find interval index
-        interval_idx = np.searchsorted(breakpoints, given_value, side='left')
+        # Convert scalar inputs to arrays
+        given_values = [np.atleast_1d(values) for values in given_values]
+        
+        # Find intervals for all values in each axis
+        intervals = []
+        for axis, values in zip(given_axes, given_values):
+            breakpoints = self.marginal_cdfs[axis][1:-1]
+            intervals.append(np.searchsorted(breakpoints, values, side='left'))
         
         # Get conditional PMF
         conditional_pmf = self._calculate_conditional_pmf(
             target_axis=target_axis,
-            given_axes=[given_axis]
+            given_axes=given_axes
         )
         
-        # Select appropriate slice of conditional PMF
-        if given_axis == 0:
-            pmf_slice = conditional_pmf[interval_idx]
-        else:
-            pmf_slice = conditional_pmf[:,interval_idx]
+        # Prepare output array
+        n_points = len(given_values[0])
+        results = np.zeros(n_points, dtype=float)
         
-        # Calculate regression using scores and PMF
-        regression_value = np.sum(pmf_slice * self.scores[target_axis])
+        # Calculate unique interval combinations
+        unique_intervals = np.unique(np.column_stack(intervals), axis=0)
         
-        return regression_value
-
-    def _calculate_regression_batched(self, target_axis, given_axis, given_values):
-        """Helper Function: Vectorized calculation of regression for multiple values."""
-        given_values = np.asarray(given_values)
-        results = np.zeros_like(given_values, dtype=float)
-        
-        # Get breakpoints
-        breakpoints = self.marginal_cdfs[given_axis][1:-1]
-        
-        # Find intervals for all values
-        intervals = np.searchsorted(breakpoints, given_values, side='left')
-        
-        # Get conditional PMF
-        conditional_pmf = self._calculate_conditional_pmf(
-            target_axis=target_axis, 
-            given_axes=[given_axis]
-        )
-        
-        # Calculate for each unique interval
-        for interval_idx in np.unique(intervals):
-            mask = (intervals == interval_idx)
-            if given_axis == 0:
-                pmf_slice = conditional_pmf[interval_idx]
-            else:
-                pmf_slice = conditional_pmf[:,interval_idx]
+        # Calculate regression for each unique combination
+        for interval_combo in unique_intervals:
+            mask = np.all([intervals[i] == interval_combo[i] 
+                        for i in range(len(intervals))], axis=0)
+            
+            # Select appropriate slice using all intervals
+            slicing = [slice(None)] * conditional_pmf.ndim
+            for idx, axis in enumerate(given_axes):
+                slicing[axis] = interval_combo[idx]
                 
+            pmf_slice = conditional_pmf[tuple(slicing)]
             regression_value = np.sum(pmf_slice * self.scores[target_axis])
             results[mask] = regression_value
             
@@ -454,38 +481,53 @@ class GenericCheckerboardCopula:
         sigma_sq_S = np.sum(terms) / 4.0
         return sigma_sq_S
     
-    def _predict_category(self, source_category, from_axis, to_axis):
+    def _predict_category(self, source_category, from_axes, to_axis):
         """Helper Function: Predict category for target axis given source category."""
-        # Get corresponding u value for source category
-        u_source = self.marginal_cdfs[from_axis][source_category + 1]
+        if not isinstance(source_category, (list, tuple)):
+            source_category = [source_category]
+        if not isinstance(from_axes, (list, tuple)):
+            from_axes = [from_axes]
+            
+        # Get corresponding u values for each axis
+        u_values = [
+            self.marginal_cdfs[axis][cat + 1]
+            for axis, cat in zip(from_axes, source_category)
+        ]
         
         # Get regression value
-        u_target = self._calculate_regression(
+        u_target = self._calculate_regression_batched(
             target_axis=to_axis,
-            given_axis=from_axis,
-            given_value=u_source
+            given_axes=from_axes,
+            given_values=u_values
         )
         
         # Get predicted category
         return self._get_predicted_category(u_target, self.marginal_cdfs[to_axis])
-
-    def _predict_category_batched(self, source_categories, from_axis, to_axis):
-        """Helper Function: Vectorized prediction of target categories."""
-        # Convert input to numpy array
-        source_categories = np.asarray(source_categories)
+    
+    def _predict_category_batched_multi(
+        self, 
+        source_categories, 
+        from_axes, 
+        to_axis
+    ):
+        if not isinstance(from_axes, (list, tuple)):
+            from_axes = [from_axes]
         
-        # Get corresponding u values for all source categories
-        u_source_values = self.marginal_cdfs[from_axis][source_categories + 1]
+        """Vectorized prediction with multiple conditioning axes."""
+        # Get corresponding u values
+        u_values = [
+            self.marginal_cdfs[axis][cats + 1]
+            for axis, cats in zip(from_axes, source_categories)
+        ]
         
-        # Compute regression values for all u values
+        # Calculate regression values
         u_target_values = self._calculate_regression_batched(
             target_axis=to_axis,
-            given_axis=from_axis,
-            given_values=u_source_values
+            given_axes=from_axes,
+            given_values=u_values
         )
         
-        # Get predicted categories
         return self._get_predicted_category_batched(
-            u_target_values, 
+            u_target_values,
             self.marginal_cdfs[to_axis]
         )
