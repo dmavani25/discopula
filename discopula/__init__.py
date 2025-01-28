@@ -10,7 +10,7 @@ from discopula.checkerboard.genstatsim import (
         permutation_test_ccram,
     )
 
-__version__ = "0.4.0"
+__version__ = "0.4.1"
 __all__ = [
   "GenericCheckerboardCopula",
   "gen_contingency_to_case_form",

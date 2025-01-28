@@ -137,6 +137,11 @@ def cases_4d():
         [1,0,1,0],[1,0,1,0],[1,0,1,2],[1,0,1,2],
         [1,0,1,3],[1,0,1,3],[1,0,1,3]
     ])
+    
+@pytest.fixture
+def expected_shape():
+    """Fixture providing expected shape for the copula."""
+    return (2, 3, 2, 6)
 
 # Basic Creation Tests
 def test_from_contingency_table_valid(contingency_table):
@@ -341,11 +346,6 @@ def test_calculate_variance_S_invalid_axis(generic_copula):
     """Test invalid axis handling for variance calculation."""
     with pytest.raises(KeyError):
         generic_copula.calculate_variance_S(2)  # Invalid axis index
-
-@pytest.fixture
-def expected_shape():
-    """Fixture providing expected shape for the copula."""
-    return (2, 3, 2, 6)
 
 def test_from_cases_creation(cases_4d, table_4d, expected_shape):
     """Test creation of copula from cases data."""
