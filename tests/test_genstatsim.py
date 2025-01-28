@@ -1,12 +1,13 @@
 import numpy as np
+import pandas as pd
 import pytest
 from io import StringIO
 import sys
 from discopula import (
+    GenericCheckerboardCopula,
     bootstrap_ccram, 
     permutation_test_ccram, 
     bootstrap_predict_category_summary, 
-    display_prediction_summary
 )
 from discopula.checkerboard.genstatsim import _bootstrap_predict_category_multi
 
@@ -135,8 +136,9 @@ def cases_4d():
 
 def test_bootstrap_ccram_basic(contingency_table):
     """Test basic functionality of bootstrap_ccram."""
+    gen_copula = GenericCheckerboardCopula.from_contingency_table(contingency_table)
     result = bootstrap_ccram(
-        contingency_table,
+        gen_copula,
         from_axes=[0],
         to_axis=1,
         n_resamples=999,
@@ -152,8 +154,9 @@ def test_bootstrap_ccram_basic(contingency_table):
 
 def test_bootstrap_ccram_multiple_axes(table_4d):
     """Test bootstrap_ccram with multiple conditioning axes."""
+    gen_copula = GenericCheckerboardCopula.from_contingency_table(table_4d)
     result = bootstrap_ccram(
-        table_4d,
+        gen_copula,
         from_axes=[0, 1, 2],
         to_axis=3,
         n_resamples=999,
@@ -195,44 +198,42 @@ def test_bootstrap_predict_category_multi_axes(table_4d):
 
 def test_prediction_summary_multi(table_4d):
     """Test multi-dimensional prediction summary."""
-    summary, source_dims = bootstrap_predict_category_summary(
-        table_4d,
+    gen_copula = GenericCheckerboardCopula.from_contingency_table(table_4d)
+    summary_df = bootstrap_predict_category_summary(
+        gen_copula,
         from_axes=[0, 1],
+        from_axes_names=["X0","X1"],
         to_axis=2,
         n_resamples=999,
         random_state=8990
     )
     
-    assert isinstance(summary, np.ndarray)
-    assert len(source_dims) == 2
-    assert summary.ndim == 3  # target_dim + len(from_axes)
-    assert np.all(summary >= 0)
-    assert np.all(summary <= 100)
+    assert isinstance(summary_df, pd.DataFrame)
+    assert np.all(summary_df >= 0)
+    assert np.all(summary_df <= 100)
 
 def test_display_prediction_summary_multi(table_4d):
     """Test display of multi-dimensional prediction summary."""
-    summary, source_dims = bootstrap_predict_category_summary(
-        table_4d,
-        from_axes=[0, 1],
-        to_axis=2,
-        n_resamples=999,
-        random_state=8990
-    )
+    gen_copula = GenericCheckerboardCopula.from_contingency_table(table_4d)
     
     # Capture stdout
     stdout = StringIO()
     sys.stdout = stdout
     
-    display_prediction_summary(
-        summary,
-        source_dims,
+    summary_df = bootstrap_predict_category_summary(
+        gen_copula,
+        from_axes=[0, 1],
         from_axes_names=["First", "Second"],
-        to_axis_name="Third"
+        to_axis=2,
+        to_axis_name="Third",
+        n_resamples=999,
+        random_state=8990
     )
     
     sys.stdout = sys.__stdout__
     output = stdout.getvalue()
     
+    assert isinstance(summary_df, pd.DataFrame)
     assert "Prediction Summary" in output
     assert "First" in output
     assert "Second" in output
@@ -240,8 +241,9 @@ def test_display_prediction_summary_multi(table_4d):
 
 def test_permutation_test_multiple_axes(table_4d):
     """Test permutation test with multiple conditioning axes."""
+    gen_copula = GenericCheckerboardCopula.from_contingency_table(table_4d)
     result = permutation_test_ccram(
-        table_4d,
+        gen_copula,
         from_axes=[0, 1, 2],
         to_axis=3,
         n_resamples=999,
@@ -256,26 +258,27 @@ def test_permutation_test_multiple_axes(table_4d):
 def test_invalid_inputs_multi():
     """Test invalid inputs for multi-axis functionality."""
     valid_table = np.array([[10, 0], [0, 10]])
-    
+    gen_copula = GenericCheckerboardCopula.from_contingency_table(valid_table)
     # Test invalid axes combinations
     with pytest.raises((IndexError, KeyError)):
-        bootstrap_ccram(valid_table, from_axes=[2, 3], to_axis=1)
+        bootstrap_ccram(gen_copula, from_axes=[2, 3], to_axis=1)
     
     # Test duplicate axes
     with pytest.raises(IndexError):
-        bootstrap_ccram(valid_table, from_axes=[0, 0], to_axis=1)
+        bootstrap_ccram(gen_copula, from_axes=[0, 0], to_axis=1)
 
 def test_reproducibility_multi(table_4d):
     """Test reproducibility with multiple axes."""
+    gen_copula = GenericCheckerboardCopula.from_contingency_table(table_4d)
     result1 = bootstrap_ccram(
-        table_4d,
+        gen_copula,
         from_axes=[0, 1],
         to_axis=2,
         random_state=8990
     )
     
     result2 = bootstrap_ccram(
-        table_4d,
+        gen_copula,
         from_axes=[0, 1],
         to_axis=2,
         random_state=8990

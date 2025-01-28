@@ -55,7 +55,7 @@ class CustomBootstrapResult:
                 print(f"Warning: Could not create plot: {str(e)}")
                 return None
 
-def bootstrap_ccram(contingency_table: np.ndarray,
+def bootstrap_ccram(gen_copula: GenericCheckerboardCopula,
                    from_axes: Union[List[int], int],
                    to_axis: int, 
                    scaled: bool = False,
@@ -67,8 +67,8 @@ def bootstrap_ccram(contingency_table: np.ndarray,
     
     Parameters
     ----------
-    contingency_table : numpy.ndarray
-        Input contingency table
+    gen_copula : GenericCheckerboardCopula
+        Checkerboard copula object
     from_axes : Union[List[int], int]
         Source axis index or list of indices
     to_axis : int  
@@ -97,10 +97,10 @@ def bootstrap_ccram(contingency_table: np.ndarray,
     metric_name = f"{'SCCRAM' if scaled else 'CCRAM'} ({from_axes_str})->{to_axis}"
     
     # Calculate observed value
-    gen_copula = GenericCheckerboardCopula.from_contingency_table(contingency_table)
     observed_ccram = gen_copula.calculate_CCRAM_vectorized(from_axes, to_axis, scaled)
     
     # Convert to case form
+    contingency_table = gen_copula.contingency_table
     cases = gen_contingency_to_case_form(contingency_table)
     
     # Split variables
@@ -238,9 +238,11 @@ def _bootstrap_predict_category_multi(
     )
 
 def bootstrap_predict_category_summary(
-    contingency_table: np.ndarray,
+    gen_copula: GenericCheckerboardCopula,
     from_axes: List[int],
+    from_axes_names: List[str],
     to_axis: int,
+    to_axis_name: str = "Y",
     n_resamples: int = 9999,
     confidence_level: float = 0.95,
     method: str = 'percentile',
@@ -250,12 +252,16 @@ def bootstrap_predict_category_summary(
     
     Parameters
     ----------
-    contingency_table : numpy.ndarray
-        Contingency table
+    gen_copula : GenericCheckerboardCopula
+        Checkerboard copula object
     from_axes : List[int]
         Source axes indices
+    from_axes_names : List[str]
+        Source axes names
     to_axis : int
         Target axis index
+    to_axis_name : str, default='Y'
+        Target axis name
     n_resamples : int, default=9999
         Number of resamples
     confidence_level : float, default=0.95
@@ -267,10 +273,11 @@ def bootstrap_predict_category_summary(
 
     Returns
     -------
-    Tuple[numpy.ndarray, List[int]]
-        Summary table of prediction proportions and source dimensions
+    summary_df : pd.DataFrame
+        DataFrame of prediction summary
     """
     # Get dimensions for each source axis
+    contingency_table = gen_copula.contingency_table
     source_dims = [contingency_table.shape[axis] for axis in from_axes]
     target_dim = contingency_table.shape[to_axis]
     
@@ -307,27 +314,6 @@ def bootstrap_predict_category_summary(
         for val, count in zip(unique_preds, counts):
             summary[(int(val),) + source_indices] = (count / total) * 100
             
-    return summary, source_dims
-
-def display_prediction_summary(
-    summary_matrix: np.ndarray,
-    source_dims: List[int],
-    from_axes_names: List[str],
-    to_axis_name: str = "Y"
-) -> None:
-    """Display multi-dimensional prediction summary.
-    
-    Parameters
-    ----------
-    summary_matrix : numpy.ndarray
-        Multi-dimensional array of prediction percentages
-    source_dims : List[int]
-        Dimensions of source axes
-    from_axes_names : List[str]
-        Names of source variables
-    to_axis_name : str
-        Name of target variable
-    """
     # Create multi-index for source categories
     source_names = [
         [f"{name}={i}" for i in range(dim)]
@@ -335,26 +321,28 @@ def display_prediction_summary(
     ]
     
     # Create target categories
-    target_categories = [f"{to_axis_name}={i}" for i in range(summary_matrix.shape[0])]
+    target_categories = [f"{to_axis_name}={i}" for i in range(summary.shape[0])]
     
     # Reshape summary matrix for DataFrame
-    reshaped_summary = summary_matrix.reshape(summary_matrix.shape[0], -1)
+    reshaped_summary = summary.reshape(summary.shape[0], -1)
     
     # Create multi-index columns
     column_tuples = list(itertools.product(*source_names))
     columns = pd.MultiIndex.from_tuples(column_tuples)
     
     # Create DataFrame
-    df = pd.DataFrame(
+    summary_df = pd.DataFrame(
         reshaped_summary,
         index=target_categories,
         columns=columns
     )
     
     print("\nPrediction Summary (% of bootstrap samples)")
-    print("-" * 50)
-    print(df.round(1).to_string(float_format=lambda x: f"{x:5.1f}%"))
-    print("-" * 50)
+    print("-" * 80)
+    print(summary_df.round(1).to_string(float_format=lambda x: f"{x:5.1f}%"))
+    print("-" * 80)
+    
+    return summary_df
 
 @dataclass 
 class CustomPermutationResult:
@@ -399,7 +387,7 @@ class CustomPermutationResult:
             print(f"Warning: Could not create plot: {str(e)}")
             return None
 
-def permutation_test_ccram(contingency_table: np.ndarray,
+def permutation_test_ccram(gen_copula: GenericCheckerboardCopula,
                           from_axes: Union[List[int], int],
                           to_axis: int,
                           scaled: bool = False,
@@ -410,8 +398,8 @@ def permutation_test_ccram(contingency_table: np.ndarray,
     
     Parameters
     ----------
-    contingency_table : numpy.ndarray
-        Input contingency table
+    gen_copula : GenericCheckerboardCopula
+        Checkerboard copula object
     from_axes : Union[List[int], int]
         Source axis index or list of indices
     to_axis : int
@@ -435,7 +423,7 @@ def permutation_test_ccram(contingency_table: np.ndarray,
         
     from_axes_str = ",".join(map(str, from_axes))
     metric_name = f"{'SCCRAM' if scaled else 'CCRAM'} ({from_axes_str})->{to_axis}"
-    
+    contingency_table = gen_copula.contingency_table
     cases = gen_contingency_to_case_form(contingency_table)
     source_data = [cases[:, axis] for axis in from_axes]
     target_data = cases[:, to_axis]

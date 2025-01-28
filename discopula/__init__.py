@@ -6,7 +6,6 @@ from discopula.checkerboard.utils import gen_contingency_to_case_form, gen_case_
 from discopula.checkerboard.genstatsim import (
         bootstrap_ccram,
         bootstrap_predict_category_summary,
-        display_prediction_summary,
         permutation_test_ccram,
     )
 
@@ -17,6 +16,5 @@ __all__ = [
   "gen_case_form_to_contingency",
   "bootstrap_ccram",
   "bootstrap_predict_category_summary",
-  "display_prediction_summary",
   "permutation_test_ccram",
 ]
