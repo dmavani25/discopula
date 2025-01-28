@@ -160,7 +160,7 @@ class GenericCheckerboardCopula:
         scale = 1 / np.min(self.P[self.P > 0]) if np.any(self.P > 0) else 1
         return np.round(self.P * scale).astype(int)
     
-    def calculate_CCRAM(self, from_axes, to_axis, is_scaled=False):
+    def calculate_CCRAM(self, from_axes, to_axis, scaled=False):
         """Calculate CCRAM with multiple conditioning axes.
         
         Parameters
@@ -169,7 +169,7 @@ class GenericCheckerboardCopula:
             List of source axes for directional association
         to_axis : int
             Target axis for directional association
-        is_scaled : bool, optional
+        scaled : bool, optional
             Whether to return standardized measure (default: False)
         """
         if not isinstance(from_axes, (list, tuple)):
@@ -181,7 +181,6 @@ class GenericCheckerboardCopula:
         joint_prob = np.prod(mesh, axis=0)
         
         # Calculate regression values for each combination
-        # idx_arrays = [range(self.P.shape[axis]) for axis in from_axes]
         weighted_expectation = 0.0
         
         for idx in np.ndindex(*[len(p) for p in probs]):
@@ -197,7 +196,7 @@ class GenericCheckerboardCopula:
         
         ccram = 12 * weighted_expectation
         
-        if not is_scaled:
+        if not scaled:
             return ccram
             
         sigma_sq_S = self._calculate_sigma_sq_S(to_axis)
@@ -205,7 +204,7 @@ class GenericCheckerboardCopula:
             return 1.0 if ccram >= 1e-10 else 0.0
         return ccram / (12 * sigma_sq_S)
 
-    def calculate_CCRAM_vectorized(self, from_axes, to_axis, is_scaled=False):
+    def calculate_CCRAM_vectorized(self, from_axes, to_axis, scaled=False):
         """Calculate CCRAM with multiple conditioning axes. (Vectorized)
         
         Parameters
@@ -214,7 +213,7 @@ class GenericCheckerboardCopula:
             List of source axes for directional association
         to_axis : int
             Target axis for directional association
-        is_scaled : bool, optional
+        scaled : bool, optional
             Whether to return standardized measure (default: False)
         """
         if not isinstance(from_axes, (list, tuple)):
@@ -247,7 +246,7 @@ class GenericCheckerboardCopula:
         )
         ccram = 12 * weighted_expectation
         
-        if not is_scaled:
+        if not scaled:
             return ccram
             
         sigma_sq_S = self._calculate_sigma_sq_S_vectorized(to_axis)

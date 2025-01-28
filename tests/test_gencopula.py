@@ -199,7 +199,7 @@ def test_calculate_regression(generic_copula, given_values, given_axes, target_a
 ])
 def test_calculate_CCRAM(generic_copula, from_axes, to_axis, expected_ccram):
     """Test CCRAM calculations with multiple conditioning axes."""
-    calculated = generic_copula.calculate_CCRAM(from_axes, to_axis, is_scaled=False)
+    calculated = generic_copula.calculate_CCRAM(from_axes, to_axis, scaled=False)
     np.testing.assert_almost_equal(calculated, expected_ccram)
     
 # CCRAM Vectorized Tests
@@ -209,7 +209,7 @@ def test_calculate_CCRAM(generic_copula, from_axes, to_axis, expected_ccram):
 ])
 def test_calculate_CCRAM_vectorized(generic_copula, from_axes, to_axis, expected_ccram):
     """Test vectorized CCRAM calculations with multiple conditioning axes."""
-    calculated = generic_copula.calculate_CCRAM_vectorized(from_axes, to_axis, is_scaled=False)
+    calculated = generic_copula.calculate_CCRAM_vectorized(from_axes, to_axis, scaled=False)
     np.testing.assert_almost_equal(calculated, expected_ccram)
 
 # SCCRAM Tests
@@ -219,7 +219,7 @@ def test_calculate_CCRAM_vectorized(generic_copula, from_axes, to_axis, expected
 ])
 def test_calculate_SCCRAM(generic_copula, from_axes, to_axis, expected_sccram):
     """Test SCCRAM calculations with multiple conditioning axes."""
-    calculated = generic_copula.calculate_CCRAM(from_axes, to_axis, is_scaled=True)
+    calculated = generic_copula.calculate_CCRAM(from_axes, to_axis, scaled=True)
     np.testing.assert_almost_equal(calculated, expected_sccram)
     
 # SCCRAM Vectorized Tests
@@ -229,7 +229,7 @@ def test_calculate_SCCRAM(generic_copula, from_axes, to_axis, expected_sccram):
 ])
 def test_calculate_SCCRAM_vectorized(generic_copula, from_axes, to_axis, expected_sccram):
     """Test vectorized SCCRAM calculations with multiple conditioning axes."""
-    calculated = generic_copula.calculate_CCRAM_vectorized(from_axes, to_axis, is_scaled=True)
+    calculated = generic_copula.calculate_CCRAM_vectorized(from_axes, to_axis, scaled=True)
     np.testing.assert_almost_equal(calculated, expected_sccram)
 
 # Category Prediction Tests
@@ -322,7 +322,7 @@ def test_calculate_variance_S_valid(generic_copula):
     """Test valid calculation of score variance."""
     var_0 = generic_copula.calculate_variance_S(0)
     var_1 = generic_copula.calculate_variance_S(1)
-    print(var_0, var_1)
+    
     # Check return type
     assert isinstance(var_0, (float, np.float64))
     assert isinstance(var_1, (float, np.float64))
@@ -330,6 +330,12 @@ def test_calculate_variance_S_valid(generic_copula):
     # Variance should be non-negative
     assert var_0 >= 0
     assert var_1 >= 0
+    
+    # Check exact expected values
+    expected_var_0, expected_var_1 = 0.0791015625, 0.0703125
+    np.testing.assert_almost_equal(var_0, expected_var_0)
+    np.testing.assert_almost_equal(var_1, expected_var_1)
+    
 
 def test_calculate_variance_S_invalid_axis(generic_copula):
     """Test invalid axis handling for variance calculation."""
@@ -429,13 +435,13 @@ def test_4d_ccram_calculations(cases_4d, expected_shape):
     
     for from_axes, to_axis, expected in test_cases:
         # Regular CCRAM
-        ccram = cop.calculate_CCRAM(from_axes, to_axis, is_scaled=False)
+        ccram = cop.calculate_CCRAM(from_axes, to_axis, scaled=False)
         assert 0 <= ccram <= 1
         print(from_axes, to_axis, ccram)
         assert np.isclose(ccram, expected)
         
         # Vectorized CCRAM
-        ccram_vec = cop.calculate_CCRAM_vectorized(from_axes, to_axis, is_scaled=False)
+        ccram_vec = cop.calculate_CCRAM_vectorized(from_axes, to_axis, scaled=False)
         np.testing.assert_almost_equal(ccram, ccram_vec)
 
 def test_4d_prediction_multi(cases_4d, expected_shape):

@@ -58,7 +58,7 @@ class CustomBootstrapResult:
 def bootstrap_ccram(contingency_table: np.ndarray,
                    from_axes: Union[List[int], int],
                    to_axis: int, 
-                   is_scaled: bool = False,
+                   scaled: bool = False,
                    n_resamples: int = 9999,
                    confidence_level: float = 0.95,
                    method: str = 'percentile',
@@ -73,7 +73,7 @@ def bootstrap_ccram(contingency_table: np.ndarray,
         Source axis index or list of indices
     to_axis : int  
         Target axis index
-    is_scaled : bool, default=False
+    scaled : bool, default=False
         Whether to use scaled CCRAM (SCCRAM)
     n_resamples : int, default=9999
         Number of bootstrap resamples
@@ -94,11 +94,11 @@ def bootstrap_ccram(contingency_table: np.ndarray,
         
     # Format metric name
     from_axes_str = ",".join(map(str, from_axes))
-    metric_name = f"{'SCCRAM' if is_scaled else 'CCRAM'} ({from_axes_str})->{to_axis}"
+    metric_name = f"{'SCCRAM' if scaled else 'CCRAM'} ({from_axes_str})->{to_axis}"
     
     # Calculate observed value
     gen_copula = GenericCheckerboardCopula.from_contingency_table(contingency_table)
-    observed_ccram = gen_copula.calculate_CCRAM_vectorized(from_axes, to_axis, is_scaled)
+    observed_ccram = gen_copula.calculate_CCRAM_vectorized(from_axes, to_axis, scaled)
     
     # Convert to case form
     cases = gen_contingency_to_case_form(contingency_table)
@@ -133,7 +133,7 @@ def bootstrap_ccram(contingency_table: np.ndarray,
                     shape=contingency_table.shape
                 )
                 copula = GenericCheckerboardCopula.from_contingency_table(table)
-                value = copula.calculate_CCRAM_vectorized(from_axes, to_axis, is_scaled)
+                value = copula.calculate_CCRAM_vectorized(from_axes, to_axis, scaled)
                 results.append(value)
             return np.array(results)
         else:
@@ -142,7 +142,7 @@ def bootstrap_ccram(contingency_table: np.ndarray,
                 shape=contingency_table.shape
             )
             copula = GenericCheckerboardCopula.from_contingency_table(table)
-            return copula.calculate_CCRAM_vectorized(from_axes, to_axis, is_scaled)
+            return copula.calculate_CCRAM_vectorized(from_axes, to_axis, scaled)
 
     # Perform bootstrap
     res = bootstrap(
@@ -329,7 +329,6 @@ def display_prediction_summary(
         Name of target variable
     """
     # Create multi-index for source categories
-    # source_indices = [range(dim) for dim in source_dims]
     source_names = [
         [f"{name}={i}" for i in range(dim)]
         for name, dim in zip(from_axes_names, source_dims)
@@ -403,7 +402,7 @@ class CustomPermutationResult:
 def permutation_test_ccram(contingency_table: np.ndarray,
                           from_axes: Union[List[int], int],
                           to_axis: int,
-                          is_scaled: bool = False,
+                          scaled: bool = False,
                           alternative: str = 'greater',
                           n_resamples: int = 9999,
                           random_state = None) -> CustomPermutationResult:
@@ -417,7 +416,7 @@ def permutation_test_ccram(contingency_table: np.ndarray,
         Source axis index or list of indices
     to_axis : int
         Target axis index
-    is_scaled : bool, default=False
+    scaled : bool, default=False
         Whether to use scaled CCRAM (SCCRAM)
     alternative : str, default='greater'
         Alternative hypothesis ('greater', 'less', 'two-sided')
@@ -435,7 +434,7 @@ def permutation_test_ccram(contingency_table: np.ndarray,
         from_axes = [from_axes]
         
     from_axes_str = ",".join(map(str, from_axes))
-    metric_name = f"{'SCCRAM' if is_scaled else 'CCRAM'} ({from_axes_str})->{to_axis}"
+    metric_name = f"{'SCCRAM' if scaled else 'CCRAM'} ({from_axes_str})->{to_axis}"
     
     cases = gen_contingency_to_case_form(contingency_table)
     source_data = [cases[:, axis] for axis in from_axes]
@@ -467,7 +466,7 @@ def permutation_test_ccram(contingency_table: np.ndarray,
                     shape=contingency_table.shape
                 )
                 copula = GenericCheckerboardCopula.from_contingency_table(table)
-                value = copula.calculate_CCRAM_vectorized(from_axes, to_axis, is_scaled)
+                value = copula.calculate_CCRAM_vectorized(from_axes, to_axis, scaled)
                 results.append(value)
             return np.array(results)
         else:
@@ -476,7 +475,7 @@ def permutation_test_ccram(contingency_table: np.ndarray,
                 shape=contingency_table.shape
             )
             copula = GenericCheckerboardCopula.from_contingency_table(table)
-            return copula.calculate_CCRAM_vectorized(from_axes, to_axis, is_scaled)
+            return copula.calculate_CCRAM_vectorized(from_axes, to_axis, scaled)
 
     # Perform permutation test
     perm = permutation_test(
