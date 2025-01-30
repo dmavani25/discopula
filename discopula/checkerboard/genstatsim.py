@@ -93,8 +93,8 @@ def bootstrap_ccram(contingency_table: np.ndarray,
         predictors = [predictors]
         
     # Format metric name
-    predictors_str = ",".join(map(str, predictors))
-    metric_name = f"{'SCCRAM' if scaled else 'CCRAM'} ({predictors_str})->{response}"
+    predictors_str = ",".join(f"X{i}" for i in predictors)
+    metric_name = f"{'SCCRAM' if scaled else 'CCRAM'} ({predictors_str}) to X{response}"
     
     # Calculate observed value
     gen_copula = GenericCheckerboardCopula.from_contingency_table(contingency_table)
@@ -439,8 +439,9 @@ def permutation_test_ccram(contingency_table: np.ndarray,
         parsed_predictors.append(pred_axis - 1)
     parsed_response = response - 1
 
-    predictors_str = ",".join(map(str, predictors))
-    metric_name = f"{'SCCRAM' if scaled else 'CCRAM'} ({predictors_str})->{response}"
+    # Format metric name
+    predictors_str = ",".join(f"X{i}" for i in predictors)
+    metric_name = f"{'SCCRAM' if scaled else 'CCRAM'} ({predictors_str}) to X{response}"
     
     cases = gen_contingency_to_case_form(contingency_table)
     source_data = [cases[:, axis] for axis in parsed_predictors]

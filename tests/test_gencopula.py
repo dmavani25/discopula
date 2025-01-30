@@ -325,27 +325,26 @@ def test_calculate_scores_invalid_axis(generic_copula):
 
 def test_calculate_variance_S_valid(generic_copula):
     """Test valid calculation of score variance."""
-    var_0 = generic_copula.calculate_variance_S(0)
     var_1 = generic_copula.calculate_variance_S(1)
+    var_2 = generic_copula.calculate_variance_S(2)
     
     # Check return type
-    assert isinstance(var_0, (float, np.float64))
     assert isinstance(var_1, (float, np.float64))
+    assert isinstance(var_2, (float, np.float64))
     
     # Variance should be non-negative
-    assert var_0 >= 0
     assert var_1 >= 0
+    assert var_2 >= 0
     
     # Check exact expected values
-    expected_var_0, expected_var_1 = 0.0791015625, 0.0703125
-    np.testing.assert_almost_equal(var_0, expected_var_0)
+    expected_var_1, expected_var_2 = 0.0791015625, 0.0703125
     np.testing.assert_almost_equal(var_1, expected_var_1)
-    
+    np.testing.assert_almost_equal(var_2, expected_var_2)
 
 def test_calculate_variance_S_invalid_axis(generic_copula):
     """Test invalid axis handling for variance calculation."""
     with pytest.raises(KeyError):
-        generic_copula.calculate_variance_S(2)  # Invalid axis index
+        generic_copula.calculate_variance_S(3)  # Invalid axis index
 
 def test_from_cases_creation(cases_4d, table_4d, expected_shape):
     """Test creation of copula from cases data."""
@@ -396,7 +395,7 @@ def test_from_cases_variance(cases_4d, expected_shape):
     cop = GenericCheckerboardCopula.from_cases(cases_4d, expected_shape)
     
     # Test variance for the last dimension
-    variance = cop.calculate_variance_S(3)
+    variance = cop.calculate_variance_S(4)
     assert isinstance(variance, (float, np.float64))
     print(variance * 12)
     assert variance >= 0

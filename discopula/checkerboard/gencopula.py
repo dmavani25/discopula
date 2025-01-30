@@ -345,12 +345,12 @@ class GenericCheckerboardCopula:
         
         return result
     
-    def calculate_scores(self, axis):
-        """Calculate checkerboard scores for the specified axis.
+    def calculate_scores(self, var_index):
+        """Calculate checkerboard scores for the specified variable index.
         
         Parameters
         ----------
-        axis : int
+        var_index : int
             1-Indexed axis of the variable for which to calculate scores
             
         Returns
@@ -358,23 +358,24 @@ class GenericCheckerboardCopula:
         numpy.ndarray
             Array containing checkerboard scores for the given axis
         """
-        parsed_axis = axis - 1
+        parsed_axis = var_index - 1
         return self.scores[parsed_axis]
     
-    def calculate_variance_S(self, axis):
-        """Calculate the variance of score S for the specified axis.
+    def calculate_variance_S(self, var_index):
+        """Calculate the variance of score S for the specified variable index.
         
         Parameters
         ----------
-        axis : int
-            Index of the axis for which to calculate variance
+        var_index : int
+            1-Indexed axis of the variable for which to calculate variance
             
         Returns
         -------
         float
             Variance of score S for the given axis
         """
-        return self._calculate_sigma_sq_S_vectorized(axis)
+        parsed_axis = var_index - 1
+        return self._calculate_sigma_sq_S_vectorized(parsed_axis)
     
     def _calculate_conditional_pmf(self, target_axis, given_axes):
         """Helper Function: Calculate conditional PMF P(target|given)."""

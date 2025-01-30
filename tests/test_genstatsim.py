@@ -159,10 +159,23 @@ def test_bootstrap_ccram_multiple_axes(table_4d):
         n_resamples=999,
         random_state=8990
     )
-    print(result)
-    assert "(1,2,3)->4" in result.metric_name
+
+    assert "(X1,X2,X3) to X4" in result.metric_name
     assert hasattr(result, "confidence_interval")
     assert result.confidence_interval[0] < result.confidence_interval[1]
+    
+    result_2d_multi = bootstrap_ccram(
+        table_4d,
+        predictors=[1],
+        response=2,
+        n_resamples=999,
+        random_state=8990
+    )
+    
+    assert "(X1) to X2" in result_2d_multi.metric_name
+    assert hasattr(result_2d_multi, "confidence_interval")
+    assert result_2d_multi.confidence_interval[0] < result_2d_multi.confidence_interval[1]
+    
 
 def test_bootstrap_predict_category_multi_basic(contingency_table):
     """Test basic multi-axis category prediction."""
@@ -203,7 +216,7 @@ def test_prediction_summary_multi(table_4d):
         n_resamples=999,
         random_state=8990
     )
-    
+
     assert isinstance(summary_df, pd.DataFrame)
     assert np.all(summary_df >= 0)
     assert np.all(summary_df <= 100)
@@ -244,7 +257,7 @@ def test_permutation_test_multiple_axes(table_4d):
         random_state=8990
     )
     print(result.p_value)
-    assert "(1,2,3)->4" in result.metric_name
+    assert "(X1,X2,X3) to X4" in result.metric_name
     assert hasattr(result, "p_value")
     assert 0 <= result.p_value <= 1
     assert len(result.null_distribution) == 999
