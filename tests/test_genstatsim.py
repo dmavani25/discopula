@@ -4,7 +4,6 @@ import pytest
 from io import StringIO
 import sys
 from discopula import (
-    GenericCheckerboardCopula,
     bootstrap_ccram, 
     permutation_test_ccram, 
     bootstrap_predict_category_summary, 
@@ -136,11 +135,10 @@ def cases_4d():
 
 def test_bootstrap_ccram_basic(contingency_table):
     """Test basic functionality of bootstrap_ccram."""
-    gen_copula = GenericCheckerboardCopula.from_contingency_table(contingency_table)
     result = bootstrap_ccram(
-        gen_copula,
-        from_axes=[0],
-        to_axis=1,
+        contingency_table,
+        predictors=[1],
+        response=2,
         n_resamples=999,
         random_state=8990
     )
@@ -154,16 +152,15 @@ def test_bootstrap_ccram_basic(contingency_table):
 
 def test_bootstrap_ccram_multiple_axes(table_4d):
     """Test bootstrap_ccram with multiple conditioning axes."""
-    gen_copula = GenericCheckerboardCopula.from_contingency_table(table_4d)
     result = bootstrap_ccram(
-        gen_copula,
-        from_axes=[0, 1, 2],
-        to_axis=3,
+        table_4d,
+        predictors=[1, 2, 3],
+        response=4,
         n_resamples=999,
         random_state=8990
     )
     print(result)
-    assert "(0,1,2)->3" in result.metric_name
+    assert "(1,2,3)->4" in result.metric_name
     assert hasattr(result, "confidence_interval")
     assert result.confidence_interval[0] < result.confidence_interval[1]
 
@@ -172,8 +169,8 @@ def test_bootstrap_predict_category_multi_basic(contingency_table):
     result = _bootstrap_predict_category_multi(
         contingency_table,
         source_categories=[0],
-        from_axes=[0],
-        to_axis=1,
+        predictors=[0],
+        response=1,
         n_resamples=999,
         random_state=8990
     )
@@ -187,8 +184,8 @@ def test_bootstrap_predict_category_multi_axes(table_4d):
     result = _bootstrap_predict_category_multi(
         table_4d,
         source_categories=[0, 1],
-        from_axes=[0, 1],
-        to_axis=2,
+        predictors=[0, 1],
+        response=2,
         n_resamples=999,
         random_state=8990
     )
@@ -198,12 +195,11 @@ def test_bootstrap_predict_category_multi_axes(table_4d):
 
 def test_prediction_summary_multi(table_4d):
     """Test multi-dimensional prediction summary."""
-    gen_copula = GenericCheckerboardCopula.from_contingency_table(table_4d)
     summary_df = bootstrap_predict_category_summary(
-        gen_copula,
-        from_axes=[0, 1],
-        from_axes_names=["X0","X1"],
-        to_axis=2,
+        table_4d,
+        predictors=[1, 2],
+        predictors_names=["X1","X2"],
+        response=3,
         n_resamples=999,
         random_state=8990
     )
@@ -214,18 +210,17 @@ def test_prediction_summary_multi(table_4d):
 
 def test_display_prediction_summary_multi(table_4d):
     """Test display of multi-dimensional prediction summary."""
-    gen_copula = GenericCheckerboardCopula.from_contingency_table(table_4d)
     
     # Capture stdout
     stdout = StringIO()
     sys.stdout = stdout
     
     summary_df = bootstrap_predict_category_summary(
-        gen_copula,
-        from_axes=[0, 1],
-        from_axes_names=["First", "Second"],
-        to_axis=2,
-        to_axis_name="Third",
+        table_4d,
+        predictors=[1, 2],
+        predictors_names=["First", "Second"],
+        response=3,
+        response_name="Third",
         n_resamples=999,
         random_state=8990
     )
@@ -241,16 +236,15 @@ def test_display_prediction_summary_multi(table_4d):
 
 def test_permutation_test_multiple_axes(table_4d):
     """Test permutation test with multiple conditioning axes."""
-    gen_copula = GenericCheckerboardCopula.from_contingency_table(table_4d)
     result = permutation_test_ccram(
-        gen_copula,
-        from_axes=[0, 1, 2],
-        to_axis=3,
+        table_4d,
+        predictors=[1, 2, 3],
+        response=4,
         n_resamples=999,
         random_state=8990
     )
     print(result.p_value)
-    assert "(0,1,2)->3" in result.metric_name
+    assert "(1,2,3)->4" in result.metric_name
     assert hasattr(result, "p_value")
     assert 0 <= result.p_value <= 1
     assert len(result.null_distribution) == 999
@@ -258,29 +252,27 @@ def test_permutation_test_multiple_axes(table_4d):
 def test_invalid_inputs_multi():
     """Test invalid inputs for multi-axis functionality."""
     valid_table = np.array([[10, 0], [0, 10]])
-    gen_copula = GenericCheckerboardCopula.from_contingency_table(valid_table)
     # Test invalid axes combinations
-    with pytest.raises((IndexError, KeyError)):
-        bootstrap_ccram(gen_copula, from_axes=[2, 3], to_axis=1)
+    with pytest.raises(ValueError):
+        bootstrap_ccram(valid_table, predictors=[3, 4], response=1)
     
     # Test duplicate axes
     with pytest.raises(IndexError):
-        bootstrap_ccram(gen_copula, from_axes=[0, 0], to_axis=1)
+        bootstrap_ccram(valid_table, predictors=[1, 1], response=2)
 
 def test_reproducibility_multi(table_4d):
     """Test reproducibility with multiple axes."""
-    gen_copula = GenericCheckerboardCopula.from_contingency_table(table_4d)
     result1 = bootstrap_ccram(
-        gen_copula,
-        from_axes=[0, 1],
-        to_axis=2,
+        table_4d,
+        predictors=[1, 2],
+        response=3,
         random_state=8990
     )
     
     result2 = bootstrap_ccram(
-        gen_copula,
-        from_axes=[0, 1],
-        to_axis=2,
+        table_4d,
+        predictors=[1, 2],
+        response=3,
         random_state=8990
     )
     

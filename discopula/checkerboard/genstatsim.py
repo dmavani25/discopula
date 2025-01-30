@@ -55,9 +55,9 @@ class CustomBootstrapResult:
                 print(f"Warning: Could not create plot: {str(e)}")
                 return None
 
-def bootstrap_ccram(gen_copula: GenericCheckerboardCopula,
-                   from_axes: Union[List[int], int],
-                   to_axis: int, 
+def bootstrap_ccram(contingency_table: np.ndarray,
+                   predictors: Union[List[int], int],
+                   response: int, 
                    scaled: bool = False,
                    n_resamples: int = 9999,
                    confidence_level: float = 0.95,
@@ -67,12 +67,12 @@ def bootstrap_ccram(gen_copula: GenericCheckerboardCopula,
     
     Parameters
     ----------
-    gen_copula : GenericCheckerboardCopula
-        Checkerboard copula object
-    from_axes : Union[List[int], int]
-        Source axis index or list of indices
-    to_axis : int  
-        Target axis index
+    contingency_table : numpy.ndarray
+        Input contingency table
+    predictors : Union[List[int], int]
+        List of 1-indexed predictors axes for category prediction
+    response : int
+        1-indexed target response axis for category prediction
     scaled : bool, default=False
         Whether to use scaled CCRAM (SCCRAM)
     n_resamples : int, default=9999
@@ -89,23 +89,29 @@ def bootstrap_ccram(gen_copula: GenericCheckerboardCopula,
     CustomBootstrapResult
         Bootstrap results including CIs and distribution
     """
-    if not isinstance(from_axes, (list, tuple)):
-        from_axes = [from_axes]
+    if not isinstance(predictors, (list, tuple)):
+        predictors = [predictors]
         
     # Format metric name
-    from_axes_str = ",".join(map(str, from_axes))
-    metric_name = f"{'SCCRAM' if scaled else 'CCRAM'} ({from_axes_str})->{to_axis}"
+    predictors_str = ",".join(map(str, predictors))
+    metric_name = f"{'SCCRAM' if scaled else 'CCRAM'} ({predictors_str})->{response}"
     
     # Calculate observed value
-    observed_ccram = gen_copula.calculate_CCRAM_vectorized(from_axes, to_axis, scaled)
+    gen_copula = GenericCheckerboardCopula.from_contingency_table(contingency_table)
+    observed_ccram = gen_copula.calculate_CCRAM_vectorized(predictors, response, scaled)
     
     # Convert to case form
-    contingency_table = gen_copula.contingency_table
     cases = gen_contingency_to_case_form(contingency_table)
     
+    # Input validation and 0-indexing
+    parsed_predictors = []
+    for pred_axis in predictors:
+        parsed_predictors.append(pred_axis - 1)
+    parsed_response = response - 1
+    
     # Split variables
-    source_data = [cases[:, axis] for axis in from_axes]
-    target_data = cases[:, to_axis]
+    source_data = [cases[:, axis] for axis in parsed_predictors]
+    target_data = cases[:, parsed_response]
     data = (*source_data, target_data)
 
     def ccram_stat(*args, axis=0):
@@ -133,7 +139,7 @@ def bootstrap_ccram(gen_copula: GenericCheckerboardCopula,
                     shape=contingency_table.shape
                 )
                 copula = GenericCheckerboardCopula.from_contingency_table(table)
-                value = copula.calculate_CCRAM_vectorized(from_axes, to_axis, scaled)
+                value = copula.calculate_CCRAM_vectorized(predictors, response, scaled)
                 results.append(value)
             return np.array(results)
         else:
@@ -142,7 +148,7 @@ def bootstrap_ccram(gen_copula: GenericCheckerboardCopula,
                 shape=contingency_table.shape
             )
             copula = GenericCheckerboardCopula.from_contingency_table(table)
-            return copula.calculate_CCRAM_vectorized(from_axes, to_axis, scaled)
+            return copula.calculate_CCRAM_vectorized(predictors, response, scaled)
 
     # Perform bootstrap
     res = bootstrap(
@@ -170,8 +176,8 @@ def bootstrap_ccram(gen_copula: GenericCheckerboardCopula,
 def _bootstrap_predict_category_multi(
     contingency_table: np.ndarray,
     source_categories: List[int],
-    from_axes: List[int],
-    to_axis: int,
+    predictors: List[int],
+    response: int,
     n_resamples: int = 9999,
     confidence_level: float = 0.95,
     method: str = 'percentile',
@@ -182,8 +188,8 @@ def _bootstrap_predict_category_multi(
     cases = gen_contingency_to_case_form(contingency_table)
     
     # Split variables for each source axis
-    source_data = [cases[:, axis] for axis in from_axes]
-    target_data = cases[:, to_axis]
+    source_data = [cases[:, axis] for axis in predictors]
+    target_data = cases[:, response]
     data = (*source_data, target_data)
 
     def prediction_stat(*args, axis=0):
@@ -212,7 +218,7 @@ def _bootstrap_predict_category_multi(
                 )
                 copula = GenericCheckerboardCopula.from_contingency_table(table)
                 pred = copula._predict_category(
-                    source_categories, from_axes, to_axis
+                    source_categories, predictors, response
                 )
                 results.append(pred)
             return np.array(results)
@@ -223,7 +229,7 @@ def _bootstrap_predict_category_multi(
             )
             copula = GenericCheckerboardCopula.from_contingency_table(table)
             return copula._predict_category(
-                source_categories, from_axes, to_axis
+                source_categories, predictors, response
             )
 
     return bootstrap(
@@ -238,29 +244,29 @@ def _bootstrap_predict_category_multi(
     )
 
 def bootstrap_predict_category_summary(
-    gen_copula: GenericCheckerboardCopula,
-    from_axes: List[int],
-    from_axes_names: List[str],
-    to_axis: int,
-    to_axis_name: str = "Y",
+    contingency_table: np.ndarray,
+    predictors: List[int],
+    predictors_names: List[str],
+    response: int,
+    response_name: str = "Y",
     n_resamples: int = 9999,
     confidence_level: float = 0.95,
     method: str = 'percentile',
     random_state = None
-) -> Tuple[np.ndarray, List[int]]:
+) -> pd.DataFrame:
     """Generate bootstrap summary table for multi-axis predictions.
     
     Parameters
     ----------
-    gen_copula : GenericCheckerboardCopula
-        Checkerboard copula object
-    from_axes : List[int]
-        Source axes indices
-    from_axes_names : List[str]
+    contingency_table : np.ndarray
+        Contingency table
+    predictors : List[int]
+        List of 1-indexed predictors axes for category prediction
+    predictors_names : List[str]
         Source axes names
-    to_axis : int
-        Target axis index
-    to_axis_name : str, default='Y'
+    response : int
+        1-indexed target response axis for category prediction
+    response_name : str, default='Y'
         Target axis name
     n_resamples : int, default=9999
         Number of resamples
@@ -276,23 +282,29 @@ def bootstrap_predict_category_summary(
     summary_df : pd.DataFrame
         DataFrame of prediction summary
     """
-    # Get dimensions for each source axis
-    contingency_table = gen_copula.contingency_table
-    source_dims = [contingency_table.shape[axis] for axis in from_axes]
-    target_dim = contingency_table.shape[to_axis]
+    
+    # Input validation and 0-indexing
+    parsed_predictors = []
+    for pred_axis in predictors:
+        parsed_predictors.append(pred_axis - 1)
+    parsed_response = response - 1
+    
+    # Get dimensions for each source axis and target axis
+    source_dims = [contingency_table.shape[axis] for axis in parsed_predictors]
+    target_dim = contingency_table.shape[parsed_response]
     
     # Create all combinations of source categories
     source_categories = np.array(np.meshgrid(
         *[range(dim) for dim in source_dims]
-    )).T.reshape(-1, len(from_axes))
+    )).T.reshape(-1, len(parsed_predictors))
     
     results = []
     for cats in source_categories:
         res = _bootstrap_predict_category_multi(
             contingency_table,
             cats.tolist(),
-            from_axes,
-            to_axis,
+            parsed_predictors,
+            parsed_response,
             n_resamples=n_resamples,
             confidence_level=confidence_level,
             method=method,
@@ -317,11 +329,11 @@ def bootstrap_predict_category_summary(
     # Create multi-index for source categories
     source_names = [
         [f"{name}={i}" for i in range(dim)]
-        for name, dim in zip(from_axes_names, source_dims)
+        for name, dim in zip(predictors_names, source_dims)
     ]
     
     # Create target categories
-    target_categories = [f"{to_axis_name}={i}" for i in range(summary.shape[0])]
+    target_categories = [f"{response_name}={i}" for i in range(summary.shape[0])]
     
     # Reshape summary matrix for DataFrame
     reshaped_summary = summary.reshape(summary.shape[0], -1)
@@ -387,9 +399,9 @@ class CustomPermutationResult:
             print(f"Warning: Could not create plot: {str(e)}")
             return None
 
-def permutation_test_ccram(gen_copula: GenericCheckerboardCopula,
-                          from_axes: Union[List[int], int],
-                          to_axis: int,
+def permutation_test_ccram(contingency_table: np.ndarray,
+                          predictors: Union[List[int], int],
+                          response: int,
                           scaled: bool = False,
                           alternative: str = 'greater',
                           n_resamples: int = 9999,
@@ -398,12 +410,12 @@ def permutation_test_ccram(gen_copula: GenericCheckerboardCopula,
     
     Parameters
     ----------
-    gen_copula : GenericCheckerboardCopula
-        Checkerboard copula object
-    from_axes : Union[List[int], int]
-        Source axis index or list of indices
-    to_axis : int
-        Target axis index
+    contingency_table : numpy.ndarray
+        Input contingency table
+    predictors : Union[List[int], int]
+        List of 1-indexed predictors axes for category prediction
+    response : int
+        1-indexed target response axis for category prediction
     scaled : bool, default=False
         Whether to use scaled CCRAM (SCCRAM)
     alternative : str, default='greater'
@@ -418,15 +430,21 @@ def permutation_test_ccram(gen_copula: GenericCheckerboardCopula,
     CustomPermutationResult
         Test results including p-value and null distribution
     """
-    if not isinstance(from_axes, (list, tuple)):
-        from_axes = [from_axes]
+    if not isinstance(predictors, (list, tuple)):
+        predictors = [predictors]
         
-    from_axes_str = ",".join(map(str, from_axes))
-    metric_name = f"{'SCCRAM' if scaled else 'CCRAM'} ({from_axes_str})->{to_axis}"
-    contingency_table = gen_copula.contingency_table
+    # Input validation and 0-indexing
+    parsed_predictors = []
+    for pred_axis in predictors:
+        parsed_predictors.append(pred_axis - 1)
+    parsed_response = response - 1
+
+    predictors_str = ",".join(map(str, predictors))
+    metric_name = f"{'SCCRAM' if scaled else 'CCRAM'} ({predictors_str})->{response}"
+    
     cases = gen_contingency_to_case_form(contingency_table)
-    source_data = [cases[:, axis] for axis in from_axes]
-    target_data = cases[:, to_axis]
+    source_data = [cases[:, axis] for axis in parsed_predictors]
+    target_data = cases[:, parsed_response]
     data = (*source_data, target_data)
 
     def ccram_stat(*args, axis=0):
@@ -454,7 +472,7 @@ def permutation_test_ccram(gen_copula: GenericCheckerboardCopula,
                     shape=contingency_table.shape
                 )
                 copula = GenericCheckerboardCopula.from_contingency_table(table)
-                value = copula.calculate_CCRAM_vectorized(from_axes, to_axis, scaled)
+                value = copula.calculate_CCRAM_vectorized(predictors, response, scaled)
                 results.append(value)
             return np.array(results)
         else:
@@ -463,7 +481,7 @@ def permutation_test_ccram(gen_copula: GenericCheckerboardCopula,
                 shape=contingency_table.shape
             )
             copula = GenericCheckerboardCopula.from_contingency_table(table)
-            return copula.calculate_CCRAM_vectorized(from_axes, to_axis, scaled)
+            return copula.calculate_CCRAM_vectorized(predictors, response, scaled)
 
     # Perform permutation test
     perm = permutation_test(
