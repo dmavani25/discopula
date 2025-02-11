@@ -41,62 +41,15 @@ Visit [Read the Docs](https://discopula.readthedocs.org) for the full documentat
 
 ## Examples
 
-For a quick overview, refer to the quick-start example below. More detailed examples for Jupyter Notebooks and beyond (organized by functionality) can be found in our [GitHub repository's examples folder](https://github.com/dmavani25/discopula/tree/master/examples).
+For detailed examples in Jupyter Notebooks and beyond (organized by functionality) please refer to our [GitHub repository's examples folder](https://github.com/dmavani25/discopula/tree/master/examples).
 
-### Quick-Start Example
+## Features
 
-```python
-import numpy as np
-from discopula import GenericCheckerboardCopula
-
-# Create a sample contingency table
-contingency_table = np.array([
-    [0, 0, 20],
-    [0, 10, 0],
-    [20, 0, 0],
-    [0, 10, 0],
-    [0, 0, 20]
-])
-
-# Initialize copula from contingency table
-copula = GenericCheckerboardCopula.from_contingency_table(contingency_table)
-
-# Basic properties 
-print(f"Shape of probability matrix P: {copula.P.shape}")
-print(f"Marginal CDF axis 0: {copula.marginal_cdfs[0]}")
-print(f"Marginal CDF axis 1: {copula.marginal_cdfs[1]}")
-
-# Regression calculations
-u1, u2 = 0.5, 0.5
-print(f"E[U2|U1={u1}] = {copula._calculate_regression(1, 0, u1):.6f}")
-print(f"E[U1|U2={u2}] = {copula._calculate_regression(0, 1, u2):.6f}")
-
-# Association measures
-print(f"CCRAM 0->1: {copula.calculate_CCRAM(0, 1):.6f}")
-print(f"SCCRAM 0->1: {copula.calculate_CCRAM(0, 1, is_scaled=True):.6f}")
-
-# Category predictions
-print("\nCategory Prediction Mapping:")
-print(copula.get_category_predictions(0, 1))
-```
-
-### Quick-Start Example Output 
-
-```text
-Shape of probability matrix P: (5, 3)
-Marginal CDF axis 0: [0.    0.25  0.375 0.625 0.75  1.   ]
-Marginal CDF axis 1: [0.   0.25 0.5  1.  ]
-E[U2|U1=0.5] = 0.125000
-E[U1|U2=0.5] = 0.500000
-CCRAM 0->1: 0.843750
-SCCRAM 0->1: 1.000000
-
-Category Predictions: X → Y
-----------------------------------------
-   X Category  Predicted Y Category
-0           0                     2
-1           1                     1
-2           2                     0
-3           3                     1
-4           4                     2
-```
+- Construction of checkerboard copulas from contingency tables and/or list of cases
+- Calculation of marginal distributions and CDFs
+- Computation of Checkerboard Copula Regression (CCR) and Prediction based on CCR
+- Implementation of Checkerboard Copula Regression Association Measure (CCRAM) and the Scaled CCRAM (SCCRAM)
+- Bootstrap functionality for CCR-based prediction, CCRAM and SCCRAM
+- Permutation testing functionality for CCRAM & SCCRAM
+- Vectorized implementations for improved performance
+- Rigorous Edge-case Handling & Unit Testing with Pytest 
