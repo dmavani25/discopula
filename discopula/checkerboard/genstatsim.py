@@ -198,12 +198,18 @@ def _bootstrap_predict_category_multi(
     random_state = None
 ):
     """Bootstrap confidence intervals for multi-axis category prediction."""
+    # Get all required axes in sorted order
+    all_axes = sorted(predictors + [response])
+    
     # Convert table to case form
     cases = gen_contingency_to_case_form(contingency_table)
     
-    # Split variables for each source axis
-    source_data = [cases[:, axis] for axis in predictors]
-    target_data = cases[:, response]
+    # Create axis mapping
+    axis_positions = {axis: i for i, axis in enumerate(all_axes)}
+    
+    # Split variables using axis mapping
+    source_data = [cases[:, axis_positions[axis]] for axis in predictors]
+    target_data = cases[:, axis_positions[response]]
     data = (*source_data, target_data)
 
     def prediction_stat(*args, axis=0):
@@ -228,10 +234,11 @@ def _bootstrap_predict_category_multi(
             for batch_cases in cases:
                 table = gen_case_form_to_contingency(
                     batch_cases,
-                    shape=contingency_table.shape
+                    shape=contingency_table.shape,
+                    axis_order=all_axes  # Pass correct axis order
                 )
                 copula = GenericCheckerboardCopula.from_contingency_table(table)
-                pred = copula._predict_category(
+                pred = copula._predict_category_batched_multi(
                     source_categories, predictors, response
                 )
                 results.append(pred)
@@ -239,10 +246,11 @@ def _bootstrap_predict_category_multi(
         else:
             table = gen_case_form_to_contingency(
                 cases,
-                shape=contingency_table.shape
+                shape=contingency_table.shape,
+                axis_order=all_axes  # Pass correct axis order
             )
             copula = GenericCheckerboardCopula.from_contingency_table(table)
-            return copula._predict_category(
+            return copula._predict_category_batched_multi(
                 source_categories, predictors, response
             )
 
@@ -296,12 +304,22 @@ def bootstrap_predict_category_summary(
     summary_df : pd.DataFrame
         DataFrame of prediction summary
     """
-    
     # Input validation and 0-indexing
     parsed_predictors = []
     for pred_axis in predictors:
         parsed_predictors.append(pred_axis - 1)
     parsed_response = response - 1
+    
+    # Validate dimensions
+    ndim = contingency_table.ndim
+    if parsed_response >= ndim:
+        raise ValueError(f"Response axis {response} is out of bounds")
+    for axis in parsed_predictors:
+        if axis >= ndim:
+            raise ValueError(f"Predictor axis {axis+1} is out of bounds")
+    
+    # Get all required axes in sorted order
+    # all_axes = sorted(parsed_predictors + [parsed_response])
     
     # Get dimensions for each source axis and target axis
     source_dims = [contingency_table.shape[axis] for axis in parsed_predictors]

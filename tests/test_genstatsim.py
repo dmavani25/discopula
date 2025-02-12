@@ -224,7 +224,7 @@ def test_prediction_summary_multi(table_4d):
         table_4d,
         predictors=[1, 2],
         predictors_names=["X1","X2"],
-        response=3,
+        response=4,
         n_resamples=999,
         random_state=8990
     )
@@ -232,6 +232,19 @@ def test_prediction_summary_multi(table_4d):
     assert isinstance(summary_df, pd.DataFrame)
     assert np.all(summary_df >= 0)
     assert np.all(summary_df <= 100)
+    
+    summary_df_full = bootstrap_predict_category_summary(
+        table_4d,
+        predictors=[1, 2, 3],
+        predictors_names=["X1","X2","X3"],
+        response=4,
+        n_resamples=999,
+        random_state=8990
+    )
+
+    assert isinstance(summary_df_full, pd.DataFrame)
+    assert np.all(summary_df_full >= 0)
+    assert np.all(summary_df_full <= 100)
 
 def test_display_prediction_summary_multi(table_4d):
     """Test display of multi-dimensional prediction summary."""
@@ -244,8 +257,8 @@ def test_display_prediction_summary_multi(table_4d):
         table_4d,
         predictors=[1, 2],
         predictors_names=["First", "Second"],
-        response=3,
-        response_name="Third",
+        response=4,
+        response_name="Fourth",
         n_resamples=999,
         random_state=8990
     )
@@ -257,7 +270,7 @@ def test_display_prediction_summary_multi(table_4d):
     assert "Prediction Summary" in output
     assert "First" in output
     assert "Second" in output
-    assert "Third" in output
+    assert "Fourth" in output
 
 def test_permutation_test_multiple_axes(table_4d):
     """Test permutation test with multiple conditioning axes."""

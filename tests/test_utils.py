@@ -1,8 +1,6 @@
 import numpy as np
 import pytest
 from discopula.checkerboard.utils import (
-    contingency_to_case_form,
-    case_form_to_contingency,
     gen_contingency_to_case_form,
     gen_case_form_to_contingency
 )
@@ -43,21 +41,6 @@ def case_form_data():
         [4, 2], [4, 2], [4, 2], [4, 2], [4, 2],
         [4, 2], [4, 2], [4, 2], [4, 2], [4, 2]
     ])
-
-def test_contingency_to_case_form(contingency_table, case_form_data):
-    """
-    Test converting a contingency table to case-form data.
-    """
-    cases = contingency_to_case_form(contingency_table)
-    np.testing.assert_array_equal(cases, case_form_data)
-
-def test_case_form_to_contingency(contingency_table, case_form_data):
-    """
-    Test converting case-form data back to a contingency table.
-    """
-    n_rows, n_cols = contingency_table.shape
-    reconstructed_table = case_form_to_contingency(case_form_data, n_rows, n_cols)
-    np.testing.assert_array_equal(reconstructed_table, contingency_table)
     
 def test_gen_contingency_to_case_form(contingency_table, case_form_data):
     """
@@ -189,7 +172,10 @@ def table_4d():
 
 @pytest.fixture
 def cases_4d():
-    """Fixture for 4D case-form data."""
+    """
+    Fixture for 4D case-form data 0-indexed here for utils 
+    because they are supposed to be internal converter functions.
+    """
     return np.array([
         # RDA Row 1
         [0,2,0,1],[0,2,0,4],[0,2,0,4],
