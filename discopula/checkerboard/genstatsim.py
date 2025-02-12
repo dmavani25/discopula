@@ -92,6 +92,21 @@ def bootstrap_ccram(contingency_table: np.ndarray,
     if not isinstance(predictors, (list, tuple)):
         predictors = [predictors]
         
+    # Input validation and 0-indexing
+    parsed_predictors = []
+    for pred_axis in predictors:
+        parsed_predictors.append(pred_axis - 1)
+    parsed_response = response - 1
+    
+    # Validate dimensions
+    ndim = contingency_table.ndim
+    if parsed_response >= ndim:
+        raise ValueError(f"Response axis {response} is out of bounds for array of dimension {ndim}")
+    
+    for axis in parsed_predictors:
+        if axis >= ndim:
+            raise ValueError(f"Predictor axis {axis+1} is out of bounds for array of dimension {ndim}")
+
     # Format metric name
     predictors_str = ",".join(f"X{i}" for i in predictors)
     metric_name = f"{'SCCRAM' if scaled else 'CCRAM'} ({predictors_str}) to X{response}"
@@ -100,18 +115,19 @@ def bootstrap_ccram(contingency_table: np.ndarray,
     gen_copula = GenericCheckerboardCopula.from_contingency_table(contingency_table)
     observed_ccram = gen_copula.calculate_CCRAM_vectorized(predictors, response, scaled)
     
-    # Convert to case form
+    # Get all required axes in sorted order
+    all_axes = sorted(parsed_predictors + [parsed_response])
+    
+    # Create full axis order including unused axes
+    # full_axis_order = all_axes + [i for i in range(ndim) if i not in all_axes]
+    
+    # Convert to case form using complete axis order
     cases = gen_contingency_to_case_form(contingency_table)
     
-    # Input validation and 0-indexing
-    parsed_predictors = []
-    for pred_axis in predictors:
-        parsed_predictors.append(pred_axis - 1)
-    parsed_response = response - 1
-    
-    # Split variables
-    source_data = [cases[:, axis] for axis in parsed_predictors]
-    target_data = cases[:, parsed_response]
+    # Split variables based on position in all_axes
+    axis_positions = {axis: i for i, axis in enumerate(all_axes)}
+    source_data = [cases[:, axis_positions[axis]] for axis in parsed_predictors]
+    target_data = cases[:, axis_positions[parsed_response]]
     data = (*source_data, target_data)
 
     def ccram_stat(*args, axis=0):
@@ -121,22 +137,20 @@ def bootstrap_ccram(contingency_table: np.ndarray,
             target_data = args[-1]
             
             cases = np.stack([
-                np.column_stack([
-                    source[i].reshape(-1, 1) for source in source_data
-                ] + [target_data[i].reshape(-1, 1)])
+                np.column_stack([source[i].reshape(-1, 1) for source in source_data] + 
+                              [target_data[i].reshape(-1, 1)])
                 for i in range(batch_size)
             ])
         else:
-            cases = np.column_stack([
-                arg.reshape(-1, 1) for arg in args
-            ])
+            cases = np.column_stack([arg.reshape(-1, 1) for arg in args])
             
         if cases.ndim == 3:
             results = []
             for batch_cases in cases:
                 table = gen_case_form_to_contingency(
                     batch_cases, 
-                    shape=contingency_table.shape
+                    shape=contingency_table.shape,
+                    axis_order=all_axes
                 )
                 copula = GenericCheckerboardCopula.from_contingency_table(table)
                 value = copula.calculate_CCRAM_vectorized(predictors, response, scaled)
@@ -145,12 +159,12 @@ def bootstrap_ccram(contingency_table: np.ndarray,
         else:
             table = gen_case_form_to_contingency(
                 cases,
-                shape=contingency_table.shape
+                shape=contingency_table.shape,
+                axis_order=all_axes
             )
             copula = GenericCheckerboardCopula.from_contingency_table(table)
             return copula.calculate_CCRAM_vectorized(predictors, response, scaled)
 
-    # Perform bootstrap
     res = bootstrap(
         data,
         ccram_stat,
@@ -438,14 +452,33 @@ def permutation_test_ccram(contingency_table: np.ndarray,
     for pred_axis in predictors:
         parsed_predictors.append(pred_axis - 1)
     parsed_response = response - 1
+    
+    # Validate dimensions
+    ndim = contingency_table.ndim
+    if parsed_response >= ndim:
+        raise ValueError(f"Response axis {response} is out of bounds for array of dimension {ndim}")
+    
+    for axis in parsed_predictors:
+        if axis >= ndim:
+            raise ValueError(f"Predictor axis {axis+1} is out of bounds for array of dimension {ndim}")
 
     # Format metric name
     predictors_str = ",".join(f"X{i}" for i in predictors)
     metric_name = f"{'SCCRAM' if scaled else 'CCRAM'} ({predictors_str}) to X{response}"
     
+    # Get all required axes in sorted order
+    all_axes = sorted(parsed_predictors + [parsed_response])
+    
+    # Create full axis order including unused axes
+    # full_axis_order = all_axes + [i for i in range(ndim) if i not in all_axes]
+    
+    # Convert to case form using complete axis order
     cases = gen_contingency_to_case_form(contingency_table)
-    source_data = [cases[:, axis] for axis in parsed_predictors]
-    target_data = cases[:, parsed_response]
+    
+    # Split variables based on position in all_axes
+    axis_positions = {axis: i for i, axis in enumerate(all_axes)}
+    source_data = [cases[:, axis_positions[axis]] for axis in parsed_predictors]
+    target_data = cases[:, axis_positions[parsed_response]]
     data = (*source_data, target_data)
 
     def ccram_stat(*args, axis=0):
@@ -455,22 +488,20 @@ def permutation_test_ccram(contingency_table: np.ndarray,
             target_data = args[-1]
             
             cases = np.stack([
-                np.column_stack([
-                    source[i].reshape(-1, 1) for source in source_data
-                ] + [target_data[i].reshape(-1, 1)])
+                np.column_stack([source[i].reshape(-1, 1) for source in source_data] + 
+                              [target_data[i].reshape(-1, 1)])
                 for i in range(batch_size)
             ])
         else:
-            cases = np.column_stack([
-                arg.reshape(-1, 1) for arg in args
-            ])
-
+            cases = np.column_stack([arg.reshape(-1, 1) for arg in args])
+            
         if cases.ndim == 3:
             results = []
             for batch_cases in cases:
                 table = gen_case_form_to_contingency(
-                    batch_cases,
-                    shape=contingency_table.shape
+                    batch_cases, 
+                    shape=contingency_table.shape,
+                    axis_order=all_axes
                 )
                 copula = GenericCheckerboardCopula.from_contingency_table(table)
                 value = copula.calculate_CCRAM_vectorized(predictors, response, scaled)
@@ -479,12 +510,12 @@ def permutation_test_ccram(contingency_table: np.ndarray,
         else:
             table = gen_case_form_to_contingency(
                 cases,
-                shape=contingency_table.shape
+                shape=contingency_table.shape,
+                axis_order=all_axes
             )
             copula = GenericCheckerboardCopula.from_contingency_table(table)
             return copula.calculate_CCRAM_vectorized(predictors, response, scaled)
 
-    # Perform permutation test
     perm = permutation_test(
         data,
         ccram_stat,

@@ -156,18 +156,26 @@ def gen_case_form_to_contingency(cases: np.ndarray,
         axis_order = list(range(cases.shape[1]))
         
     table = np.zeros(shape, dtype=int)
+    n_axes = len(shape)
+    
+    # Create full index with zeros for missing axes
+    def get_full_index(case, axis_order):
+        idx = [0] * n_axes
+        for i, axis in enumerate(axis_order):
+            idx[axis] = int(case[i])
+        return tuple(idx)
     
     # Handle both 2D and 3D cases
     if cases.ndim == 3:
         # For batched data
         for batch in cases:
             for case in batch:
-                idx = tuple(int(x) for x in case[axis_order])
+                idx = get_full_index(case, axis_order)
                 table[idx] += 1
     else:
         # For single batch
         for case in cases:
-            idx = tuple(int(x) for x in case[axis_order])
+            idx = get_full_index(case, axis_order)
             table[idx] += 1
             
     return table

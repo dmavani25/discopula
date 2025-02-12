@@ -91,6 +91,9 @@ class GenericCheckerboardCopula:
         if cases.shape[1] != len(shape):
             raise ValueError("Shape tuple must match number of variables")
             
+        # Convert from 1-indexed input to 0-indexed categorical cases
+        cases -= 1
+        
         contingency_table = gen_case_form_to_contingency(cases, shape)
         return cls.from_contingency_table(contingency_table)
     
